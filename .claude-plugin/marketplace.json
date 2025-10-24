@@ -8,8 +8,8 @@
     {
       "name": "squares",
       "source": "./skills/squares",
-      "description": "Squares skill description",
-      "version": "1.0.0"
+      "description": "수많은 작은 사각형들로 글자를 만드는 JavaScript 코드 생성 스킬",
+      "version": "1.0.5"
     }
   ]
 }
