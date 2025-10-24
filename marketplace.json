@@ -1,0 +1,15 @@
+{
+  "name": "thruthesky-skills",
+  "owner": {
+    "name": "JaeHo Song",
+    "email": "thruthesky@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "squares",
+      "source": "./skills/squares",
+      "description": "Squares skill description",
+      "version": "1.0.0"
+    }
+  ]
+}
