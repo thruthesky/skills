@@ -10,6 +10,12 @@
       "source": "./skills/squares",
       "description": "수많은 작은 사각형들로 글자를 만드는 JavaScript 코드 생성 스킬",
       "version": "1.0.5"
+    },
+    {
+      "name": "dokploy-skills",
+      "source": "./skills/dokploy-skills",
+      "description": "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. 서버 관리 권한을 통해서 Dokploy의 모든 기능을 제어할 수 있습니다. OpenClaw 설치, 각종 서비스 배포, 로그 확인, 트래픽 모니터링 등 다양한 작업을 수행할 수 있습니다.",
+      "version": "1.0.0"
     }
   ]
 }
