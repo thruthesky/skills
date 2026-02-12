@@ -1,0 +1,9 @@
+{
+  "name": "dokploy-skills",
+  "version": "1.0.0",
+  "description": "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. 서버 관리, 앱 배포, Docker Compose, DB, Traefik, SSL, 도메인, 볼륨 백업, 모니터링, 디버깅 지원.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

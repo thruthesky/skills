@@ -1,6 +1,5 @@
 ---
-name: dokploy-skills
-description: "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. SSH/API 서버 관리, 앱 배포, Docker Compose/Swarm, DB(PostgreSQL/MySQL/MongoDB/Redis), Traefik, SSL, 도메인, 볼륨 백업, 모니터링, 디버깅 지원. 'Dokploy' 언급, 배포/재배포, Docker Compose, 도메인/SSL/HTTPS, Traefik/502에러, DB관리, 볼륨백업/S3, 컨테이너로그, 서버유지보수, 빌드타입선택, 와일드카드서브도메인라우팅, pgAdmin4 작업 시 사용."
+description: "Dokploy 셀프호스팅 PaaS 전체 관리. SSH/API 서버 관리, 앱 배포, Docker Compose/Swarm, DB(PostgreSQL/MySQL/MongoDB/Redis), Traefik, SSL, 도메인, 볼륨 백업, 모니터링, 디버깅 지원. 'Dokploy' 언급, 배포/재배포, Docker Compose, 도메인/SSL/HTTPS, Traefik/502에러, DB관리, 볼륨백업/S3, 컨테이너로그, 서버유지보수, 빌드타입선택, 와일드카드서브도메인라우팅, pgAdmin4 작업 시 사용."
 ---
 
 # Dokploy 서버 관리 스킬
