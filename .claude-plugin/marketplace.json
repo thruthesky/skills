@@ -6,15 +6,39 @@
   },
   "plugins": [
     {
-      "name": "squares",
-      "source": "./skills/squares",
-      "description": "수많은 작은 사각형들로 글자를 만드는 JavaScript 코드 생성 스킬",
-      "version": "1.0.5"
+      "name": "open-meteo-skill",
+      "source": "./skills/open-meteo-skill",
+      "description": "전세계 날씨 데이터를 제공하는 무료 오픈소스 Open-Meteo API 통합 스킬. 16일 예보, 80년 역사 데이터, 대기질, 해양 날씨, 위치 검색, 고도 조회를 지원합니다.",
+      "version": "1.0.0"
     },
     {
-      "name": "dokploy-skills",
-      "source": "./skills/dokploy-skills",
-      "description": "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. 서버 관리 권한을 통해서 Dokploy의 모든 기능을 제어할 수 있습니다. OpenClaw 설치, 각종 서비스 배포, 로그 확인, 트래픽 모니터링 등 다양한 작업을 수행할 수 있습니다.",
+      "name": "dokploy-skill",
+      "source": "./skills/dokploy-skill",
+      "description": "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. 서버 관리, 앱 배포, Docker Compose, DB, Traefik, SSL, 도메인, 볼륨 백업, 모니터링, 디버깅 지원.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "currency-skill",
+      "source": "./skills/currency-skill",
+      "description": "Frankfurter API를 사용한 환율 정보 조회 및 통화 변환 스킬. 유럽중앙은행(ECB) 데이터 기반, API 키 불필요, 사용량 제한 없음.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "data-skill",
+      "source": "./skills/data-skill",
+      "description": "대한민국 공공데이터포털(data.go.kr)에서 제공하는 각종 공공데이터 API를 사용하기 위한 스킬. 공공데이터 개발 또는 공공 API 개발에 사용.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "skill-creator",
+      "source": "./skills/skill-creator",
+      "description": "새로운 스킬 생성, 기존 스킬 수정/개선, 스킬 성능 측정 및 최적화를 위한 스킬 생성기.",
+      "version": "1.0.0"
+    },
+    {
+      "name": "flutter-skill",
+      "source": "./skills/flutter-skill",
+      "description": "Flutter 프레임워크로 앱을 개발하는 데 필요한 UI/UX 디자인, 상태관리, 네트워킹, API 연동에 관한 가이드라인 제공 스킬.",
       "version": "1.0.0"
     }
   ]

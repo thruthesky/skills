@@ -341,22 +341,13 @@ Claude는 사용자가 해당 기능이 필요할 때만 REDLINING.md 또는 OOX
 
 개발 중인 스킬이 이미 존재하고 반복이나 패키징이 필요한 경우에만 이 단계를 건너뛰세요. 이 경우 다음 단계로 계속하세요.
 
-새 스킬을 처음부터 만들 때는 항상 `init_skill.py` 스크립트를 실행하세요. 이 스크립트는 스킬에 필요한 모든 것을 자동으로 포함하는 새 템플릿 스킬 디렉토리를 편리하게 생성하여 스킬 생성 프로세스를 훨씬 더 효율적이고 신뢰할 수 있게 만듭니다.
-
-사용법:
+새 스킬을 처음부터 만들 때는 다음 디렉토리 구조를 수동으로 생성하세요:
 
 ```bash
-scripts/init_skill.py <skill-name> --path <output-directory>
+mkdir -p <skill-name>/{scripts,references,assets}
 ```
 
-스크립트는:
-
-- 지정된 경로에 스킬 디렉토리 생성
-- 적절한 프론트매터와 TODO 플레이스홀더가 있는 SKILL.md 템플릿 생성
-- 예시 리소스 디렉토리 생성: `scripts/`, `references/`, `assets/`
-- 사용자 정의하거나 삭제할 수 있는 각 디렉토리에 예시 파일 추가
-
-초기화 후 생성된 SKILL.md와 예시 파일을 필요에 따라 사용자 정의하거나 제거하세요.
+그런 다음 `SKILL.md` 파일을 생성하고 필수 프론트매터(`name`, `description`)를 작성하세요. 스킬에 필요하지 않은 디렉토리는 삭제하세요.
 
 ### 4단계: 스킬 편집
 
@@ -422,30 +413,30 @@ YAML 프론트매터 필드:
 
 ### 5단계: 스킬 패키징
 
-스킬 개발이 완료되면 사용자와 공유할 배포 가능한 .skill 파일로 패키징해야 합니다. 패키징 프로세스는 모든 요구 사항을 충족하는지 확인하기 위해 먼저 자동으로 스킬을 검증합니다:
+스킬 개발이 완료되면 검증 후 배포 가능한 .skill 파일로 패키징합니다.
+
+#### 빠른 검증 (선택)
+
+패키징 전에 SKILL.md의 형식과 필수 필드를 빠르게 검증할 수 있습니다:
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder>
+scripts/quick_validate.py <path/to/skill-folder>
 ```
 
-선택적 출력 디렉토리 지정:
+YAML 프론트매터, name/description 필수 필드, 명명 규칙(kebab-case, 최대 64자), description 길이(최대 1024자) 등을 검증합니다.
+
+#### 패키징
 
 ```bash
-scripts/package_skill.py <path/to/skill-folder> ./dist
+scripts/package_skill.py <path/to/skill-folder> [output_directory]
 ```
 
 패키징 스크립트는:
 
-1. 스킬을 자동으로 **검증**하여 다음을 확인:
+1. 스킬을 자동으로 **검증**하여 프론트매터, 명명 규칙, 설명, 파일 구성을 확인
+2. 검증 통과 시 `.skill` 파일(ZIP 형식)을 생성
 
-   - YAML 프론트매터 형식 및 필수 필드
-   - 스킬 명명 규칙 및 디렉토리 구조
-   - 설명의 완전성과 품질
-   - 파일 구성 및 리소스 참조
-
-2. 검증이 통과하면 스킬을 **패키징**하여, 스킬 이름을 딴 .skill 파일(예: `my-skill.skill`)을 생성합니다. 이 파일에는 모든 파일이 포함되고 배포를 위한 적절한 디렉토리 구조가 유지됩니다. .skill 파일은 .skill 확장자를 가진 zip 파일입니다.
-
-검증이 실패하면 스크립트가 오류를 보고하고 패키지를 생성하지 않고 종료됩니다. 검증 오류를 수정하고 패키징 명령을 다시 실행하세요.
+검증이 실패하면 오류를 보고하고 종료됩니다. 오류를 수정하고 다시 실행하세요.
 
 ### 6단계: 반복
 
@@ -457,3 +448,86 @@ scripts/package_skill.py <path/to/skill-folder> ./dist
 2. 어려움이나 비효율성 인지
 3. SKILL.md 또는 번들 리소스를 어떻게 업데이트해야 하는지 식별
 4. 변경 구현 및 다시 테스트
+
+## 테스트 및 평가
+
+스킬 작성 후, 테스트 케이스를 만들어 실제 작동을 검증합니다:
+
+1. **테스트 케이스 작성**: 2-3개의 현실적인 테스트 프롬프트를 작성하여 `evals/evals.json`에 저장
+2. **트리거 평가 실행**: `scripts/run_eval.py`로 스킬 설명이 올바르게 트리거되는지 평가
+   ```bash
+   scripts/run_eval.py --eval-set evals/evals.json --skill-path <skill-dir> [--runs-per-query 3]
+   ```
+3. **병렬 실행**: 각 테스트에 대해 스킬 적용(with_skill) 버전과 베이스라인(without_skill)을 동시에 실행
+4. **채점**: 결과를 assertions 기반으로 채점 → `grading.json` 생성
+5. **벤치마크 집계**: `scripts/aggregate_benchmark.py`로 통계 집계
+   ```bash
+   scripts/aggregate_benchmark.py <benchmark-dir> [--output benchmark.json]
+   ```
+   `benchmark.json`(통계 데이터)과 `benchmark.md`(가독성 요약)를 생성합니다.
+6. **분석 및 리뷰**: 패턴 분석 후 eval viewer로 사용자에게 제시
+
+채점 시 프로그래밍 방식으로 검증 가능한 assertions는 스크립트로 처리하는 것이 더 빠르고 신뢰할 수 있으며 반복에 재사용 가능합니다.
+
+상세 프로세스, JSON 스키마, 채점 기준은 다음을 참조:
+
+- **평가 상세 프로세스**: [references/evaluation.md](references/evaluation.md)
+- **JSON 스키마**: [references/schemas.md](references/schemas.md)
+- **채점 에이전트**: [agents/grader.md](agents/grader.md)
+- **블라인드 비교**: [agents/comparator.md](agents/comparator.md)
+- **결과 분석**: [agents/analyzer.md](agents/analyzer.md)
+
+## 스킬 개선
+
+피드백 기반으로 스킬을 반복 개선합니다:
+
+1. **피드백 일반화**: 특정 예시에 과적합하지 말고, 다양한 프롬프트에서 작동하도록 일반화
+2. **프롬프트 간결화**: 생산적이지 않은 부분 제거. 트랜스크립트를 읽고 비효율적인 부분 식별
+3. **"왜"를 설명**: `ALWAYS`/`NEVER` 남발 대신 이유를 설명하여 모델의 이해를 도움
+4. **반복 작업 스크립트화**: 테스트 실행에서 반복되는 패턴을 `scripts/`에 번들
+
+개선 → 테스트 재실행 → 리뷰 → 개선 루프를 사용자가 만족할 때까지 반복합니다. 블라인드 비교가 필요한 경우 [agents/comparator.md](agents/comparator.md)와 [agents/analyzer.md](agents/analyzer.md)를 참조하세요.
+
+## 설명 최적화
+
+`description` 필드는 스킬 트리거의 핵심입니다. 최적화 프로세스:
+
+1. **트리거 평가 쿼리 생성**: should-trigger 8-10개 + should-not-trigger 8-10개의 현실적 쿼리 작성. 평가 쿼리는 구체적이고 상세해야 합니다 (파일 경로, 개인 컨텍스트, 약어/오타 포함). should-not-trigger 쿼리는 키워드가 겹치지만 실제로는 다른 작업이 필요한 "근접 실패" 사례가 가장 유용합니다.
+2. **사용자 리뷰**: 쿼리셋을 사용자에게 제시하여 검토
+3. **최적화 루프 실행**: `scripts/run_loop.py`로 평가-개선 자동 반복
+   ```bash
+   scripts/run_loop.py --eval-set evals/eval_set.json --skill-path <skill-dir> --model <model> \
+     [--max-iterations 5] [--holdout 0.4] [--runs-per-query 3] [--report auto]
+   ```
+   내부적으로 `scripts/run_eval.py`(트리거 평가)와 `scripts/improve_description.py`(설명 개선)를 반복 순환하며, `scripts/generate_report.py`로 HTML 리포트를 생성합니다.
+4. **결과 적용**: 최적 description을 SKILL.md 프론트매터에 적용
+
+**트리거 메커니즘 이해**: Claude는 단순한 1단계 쿼리(예: "이 PDF 읽어줘")보다 복잡하고 전문적인 쿼리에서 스킬을 더 잘 트리거합니다. 단순 쿼리는 Claude가 기본 도구로 직접 처리할 수 있기 때문입니다. 평가 쿼리는 스킬의 도움이 실제로 필요할 만큼 충분히 복잡해야 합니다.
+
+## 참조 파일
+
+`agents/` 디렉토리에는 특화된 서브에이전트를 위한 지침이 있습니다:
+
+- `agents/grader.md` — assertions 기반 출력 채점 방법
+- `agents/comparator.md` — 두 출력 간 블라인드 A/B 비교 방법
+- `agents/analyzer.md` — 승자 분석 및 벤치마크 패턴 분석 방법
+
+`references/` 디렉토리에는 추가 문서가 있습니다:
+
+- `references/schemas.md` — evals.json, grading.json, benchmark.json 등의 JSON 스키마
+- `references/evaluation.md` — 테스트 실행 및 평가의 상세 프로세스
+- `references/workflows.md` — 순차/조건부 워크플로우 패턴
+- `references/output-patterns.md` — 출력 형식 템플릿 및 예시 패턴
+
+`scripts/` 디렉토리에는 스킬 개발 파이프라인을 위한 스크립트가 있습니다:
+
+| 스크립트 | 역할 |
+|---------|------|
+| `scripts/run_eval.py` | 스킬 설명의 트리거 정확도 평가 |
+| `scripts/improve_description.py` | 평가 결과 기반으로 Claude가 설명 개선 |
+| `scripts/run_loop.py` | run_eval → improve_description 반복 자동화 |
+| `scripts/generate_report.py` | 최적화 루프 결과를 HTML 리포트로 변환 |
+| `scripts/aggregate_benchmark.py` | 벤치마크 실행 결과(grading.json) 통계 집계 |
+| `scripts/package_skill.py` | 스킬을 배포용 .skill 파일(ZIP)로 패키징 |
+| `scripts/quick_validate.py` | SKILL.md 형식 및 필수 필드 빠른 검증 |
+| `scripts/utils.py` | 공유 유틸리티 (SKILL.md 파싱 등) |
