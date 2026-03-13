@@ -1,0 +1,9 @@
+{
+  "name": "open-meteo-skill",
+  "version": "1.0.0",
+  "description": "전세계 날씨 데이터를 제공하는 무료 오픈소스 Open-Meteo API 통합 스킬. 16일 예보, 80년 역사 데이터, 대기질, 해양 날씨, 위치 검색, 고도 조회를 지원합니다.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

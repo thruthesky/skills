@@ -1,0 +1,9 @@
+{
+  "name": "currency-skill",
+  "version": "1.0.0",
+  "description": "Frankfurter API를 사용한 환율 정보 조회 및 통화 변환 스킬. 유럽중앙은행(ECB) 데이터 기반, API 키 불필요, 사용량 제한 없음.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

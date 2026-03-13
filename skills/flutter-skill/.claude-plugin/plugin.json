@@ -1,0 +1,9 @@
+{
+  "name": "flutter-skill",
+  "version": "1.0.0",
+  "description": "Flutter 프레임워크로 앱을 개발하는 데 필요한 UI/UX 디자인, 상태관리, 네트워킹, API 연동에 관한 가이드라인 제공 스킬.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

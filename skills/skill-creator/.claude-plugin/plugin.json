@@ -1,0 +1,9 @@
+{
+  "name": "skill-creator",
+  "version": "1.0.0",
+  "description": "새로운 스킬 생성, 기존 스킬 수정/개선, 스킬 성능 측정 및 최적화를 위한 스킬 생성기.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

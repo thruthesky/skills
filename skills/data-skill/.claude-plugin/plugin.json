@@ -1,0 +1,9 @@
+{
+  "name": "data-skill",
+  "version": "1.0.0",
+  "description": "대한민국 공공데이터포털(data.go.kr)에서 제공하는 각종 공공데이터 API를 사용하기 위한 스킬. 공공데이터 개발 또는 공공 API 개발에 사용.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}

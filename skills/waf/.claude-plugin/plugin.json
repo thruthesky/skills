@@ -1,0 +1,9 @@
+{
+  "name": "waf-skill",
+  "version": "1.0.0",
+  "description": "Cloudflare WAF로 보호된 사이트에 PHP PEST + ChromeDriver(Remote Debugging Port) 방식으로 접속하여 브라우저 자동화 작업을 수행하는 스킬.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}
