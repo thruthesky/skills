@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Guide for creating effective skills. This skill should be used when users want to create a new skill (or update an existing skill) that extends Claude's capabilities with specialized knowledge, workflows, or tool integrations.
+description: Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.
 license: Complete terms in LICENSE.txt
 ---
 
@@ -385,19 +385,40 @@ scripts/init_skill.py <skill-name> --path <output-directory>
 
 ##### 프론트매터
 
-`name`과 `description`으로 YAML 프론트매터를 작성하세요:
+YAML 프론트매터 필드:
 
-- `name`: 스킬 이름
-- `description`: 이것은 스킬의 주요 트리거 메커니즘이며, Claude가 스킬 사용 시점을 이해하는 데 도움을 줍니다.
-  - 스킬이 하는 일과 사용할 구체적인 트리거/컨텍스트를 모두 포함하세요.
-  - 모든 "사용 시점" 정보를 여기에 포함 - 본문에 넣지 마세요. 본문은 트리거 후에만 로드되므로 본문의 "이 스킬 사용 시점" 섹션은 Claude에게 도움이 되지 않습니다.
-  - `docx` 스킬의 설명 예시: "변경 추적, 댓글, 서식 보존, 텍스트 추출을 지원하는 포괄적인 문서 생성, 편집 및 분석. Claude가 다음을 위해 전문 문서(.docx 파일)로 작업해야 할 때 사용: (1) 새 문서 생성, (2) 콘텐츠 수정 또는 편집, (3) 변경 추적 작업, (4) 댓글 추가, 또는 기타 문서 작업"
+| 필드 | 필수 | 제약 사항 |
+|------|------|-----------|
+| `name` | 예 | 최대 64자. 소문자, 숫자, 하이픈만 가능. 하이픈으로 시작/끝 불가. 연속 하이픈(`--`) 불가. 부모 디렉토리명과 일치 필수. |
+| `description` | 예 | 최대 1024자. 스킬이 하는 일과 사용 시점을 설명. |
+| `license` | 아니오 | 라이선스 이름 또는 번들 라이선스 파일 참조. |
+| `compatibility` | 아니오 | 최대 500자. 환경 요구사항 (대상 제품, 시스템 패키지, 네트워크 접근 등). |
+| `metadata` | 아니오 | 추가 메타데이터를 위한 key-value 맵 (예: `author`, `version`). |
+| `allowed-tools` | 아니오 | 사전 승인 도구의 공백 구분 목록 (실험적). 예: `Bash(git:*) Read` |
 
-YAML 프론트매터에 다른 필드를 포함하지 마세요.
+**`description` 작성 가이드:**
+
+- 스킬의 주요 트리거 메커니즘이며, Claude가 스킬 사용 시점을 결정하는 핵심 요소
+- 스킬이 하는 일과 사용할 구체적인 트리거/컨텍스트를 모두 포함
+- 모든 "사용 시점" 정보를 여기에 포함 - 본문에 넣지 말 것 (본문은 트리거 후에만 로드됨)
+- Claude는 "과소 트리거" 경향이 있으므로, 설명을 약간 "적극적(pushy)"으로 작성할 것. 예: "사용자가 명시적으로 '대시보드'를 언급하지 않더라도 데이터 시각화, 내부 메트릭 등을 언급하면 이 스킬을 사용할 것"
+- 예시: "변경 추적, 댓글, 서식 보존, 텍스트 추출을 지원하는 포괄적인 문서 생성, 편집 및 분석. Claude가 전문 문서(.docx 파일)로 작업해야 할 때 사용: (1) 새 문서 생성, (2) 콘텐츠 수정/편집, (3) 변경 추적, (4) 댓글 추가 등"
 
 ##### 본문
 
-스킬과 번들 리소스 사용을 위한 지침을 작성하세요.
+스킬과 번들 리소스 사용을 위한 지침을 작성하세요. 본문의 형식 제한은 없으나, 다음 섹션을 권장합니다: 단계별 지침, 입출력 예시, 일반적인 에지 케이스.
+
+#### 스킬 작성 원칙
+
+**"왜(why)"를 설명하라**: 모든 지시의 이유를 설명하세요. `ALWAYS`/`NEVER`를 대문자로 남발하거나 과도하게 엄격한 구조를 사용하는 것은 경고 신호입니다. 대신 모델이 왜 그것이 중요한지 이해하도록 이유를 프레이밍하세요. 이론적 마음(theory of mind)을 활용하여 모델이 맥락을 이해하고 스스로 판단할 수 있게 하는 것이 더 효과적이고 강력한 접근입니다.
+
+**반복 패턴을 스크립트로 전환하라**: 테스트 실행에서 에이전트들이 모두 독립적으로 유사한 헬퍼 스크립트를 작성하는 패턴이 발견되면 (예: 모두 `create_docx.py`를 작성), 그 스크립트를 `scripts/`에 번들하세요. 모든 미래 호출이 같은 작업을 반복하지 않도록 합니다.
+
+**명령형을 사용하라**: 지침 작성 시 명령형/부정사 형태를 사용하세요.
+
+**예시를 포함하라**: 설명만으로 이해하기 어려운 원하는 스타일과 상세 수준을 입력/출력 예시 쌍으로 전달하세요.
+
+**스킬을 일반적으로 만들라**: 특정 예시에만 맞추지 말고, 다양한 프롬프트에서 작동하도록 일반화하세요. 세 가지 예시에서만 작동하는 스킬은 무용지물입니다.
 
 ### 5단계: 스킬 패키징
 
