@@ -1,0 +1,9 @@
+{
+  "name": "harness-skill",
+  "version": "1.0.0",
+  "description": "OpenAI Harness Engineering 방식의 에이전트 친화적 문서 세트(AGENTS.md + docs/)를 생성하는 스킬. 짧은 AGENTS.md 진입점, 구조화된 docs/ 시스템 오브 레코드, Progressive Disclosure, 아키텍처·제품명세·실행계획·품질 문서를 만든다.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}
