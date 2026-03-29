@@ -52,6 +52,12 @@
       "source": "./skills/harness",
       "description": "OpenAI Harness Engineering 방식의 에이전트 친화적 문서 세트(AGENTS.md + docs/)를 생성하는 스킬. 짧은 AGENTS.md 진입점, 구조화된 docs/ 시스템 오브 레코드, Progressive Disclosure, 아키텍처·제품명세·실행계획·품질 문서를 만든다.",
       "version": "1.0.0"
+    },
+    {
+      "name": "dev-skill",
+      "source": "./skills/dev",
+      "description": "Harness + AI Lang + SEDAI 개념을 융합한 AI 기반 체계적 소프트웨어 개발 스킬. .dev/ 폴더에 구조화된 명세서를 작성하고, 명세 기반으로 정밀하게 코드를 구현한다. copy(참조 복사), plan(계획 수립), execute(명세 기반 실행) 3단계 워크플로우를 제공한다.",
+      "version": "1.0.0"
     }
   ]
 }
