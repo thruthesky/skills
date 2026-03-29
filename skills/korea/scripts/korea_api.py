@@ -2,16 +2,20 @@
 """Korea SNS API 클라이언트 — 게시글/댓글 CRUD 스크립트.
 
 사용법:
-  python3 korea_api.py create --api-key KEY --title "제목" --content "내용" [--category-id 3] [--site-id 1]
-  python3 korea_api.py update --api-key KEY --id 1 --title "새제목" --content "새내용"
-  python3 korea_api.py delete --api-key KEY --id 1
-  python3 korea_api.py get    --api-key KEY --id 1
-  python3 korea_api.py list   --api-key KEY [--page 1] [--per-page 10] [--category free]
+  # 로그인하여 API 키 획득
+  python3 korea_api.py --api-key "" login --email "user@example.com" --password "pass"
+
+  # 게시글 CRUD
+  python3 korea_api.py --api-key KEY create --title "제목" --content "내용" [--category-id 3] [--site-id 1]
+  python3 korea_api.py --api-key KEY update --id 1 --title "새제목" --content "새내용"
+  python3 korea_api.py --api-key KEY delete --id 1
+  python3 korea_api.py --api-key KEY get    --id 1
+  python3 korea_api.py --api-key KEY list   [--page 1] [--per-page 10] [--category free]
 
   # 댓글
-  python3 korea_api.py comment-create --api-key KEY --post-id 1 --content "댓글"
-  python3 korea_api.py comment-update --api-key KEY --comment-id 1 --content "수정"
-  python3 korea_api.py comment-delete --api-key KEY --comment-id 1
+  python3 korea_api.py --api-key KEY comment-create --post-id 1 --content "댓글"
+  python3 korea_api.py --api-key KEY comment-update --comment-id 1 --content "수정"
+  python3 korea_api.py --api-key KEY comment-delete --comment-id 1
 """
 
 import argparse
@@ -50,6 +54,19 @@ def api_request(method: str, path: str, api_key: str, data: dict | None = None, 
             return json.loads(error_body)
         except json.JSONDecodeError:
             return {"message": f"HTTP {e.code}: {error_body}"}
+
+
+def cmd_login(args):
+    """로그인하여 API 키를 획득한다."""
+    data = {"email": args.email, "password": args.password}
+    result = api_request("POST", "/auth/login", "", data=data)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    # api_key가 응답에 포함되면 안내
+    if "data" in result and "api_key" in result.get("data", {}):
+        api_key = result["data"]["api_key"]
+        print(f"\n# API 키: {api_key}", file=sys.stderr)
+        print("# 이후 요청에 --api-key 옵션으로 사용하세요.", file=sys.stderr)
 
 
 def cmd_create(args):
@@ -135,6 +152,11 @@ def main():
     parser.add_argument("--api-key", required=True, help="API 키")
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # 로그인
+    p = sub.add_parser("login", help="로그인하여 API 키 획득")
+    p.add_argument("--email", required=True)
+    p.add_argument("--password", required=True)
+
     # 게시글 생성
     p = sub.add_parser("create", help="게시글 생성")
     p.add_argument("--title", required=True)
@@ -183,6 +205,7 @@ def main():
     args = parser.parse_args()
 
     commands = {
+        "login": cmd_login,
         "create": cmd_create,
         "update": cmd_update,
         "delete": cmd_delete,
