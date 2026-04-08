@@ -158,6 +158,68 @@ ARGUMENTS 예시:
 - 각 단계별 무엇을 어떻게 검증하는가
 - 테스트 케이스 목록
 
+## Test Plan (테스트 계획) — 필수
+### 프로젝트 유형
+- Web | Flutter | Backend API | CLI | Mobile Native | 기타
+
+### 사용 가능한 테스트 도구 / MCP 확인 결과
+명세서 작성 시점에 다음을 반드시 조사하여 기록한다:
+- Playwright MCP: 사용 가능 / 사용 불가
+- Chrome DevTools MCP: 사용 가능 / 사용 불가
+- 기타 사용 가능한 MCP (Slack, GitHub, DB 등): ...
+- 로컬 테스트 러너: <pytest / phpunit / vitest / flutter test 등>
+
+### 자동화 테스트
+- 단위 테스트: <도구> — <대상 모듈/함수>
+- 통합 테스트: <도구> — <대상 흐름>
+- E2E 테스트: <도구> — <대상 시나리오>
+
+### 브라우저 검증 (웹 프로젝트일 때 필수)
+**Playwright MCP 또는 Chrome DevTools MCP가 사용 가능하면 반드시 활용한다.**
+
+- 사용 MCP: `chrome-devtools` | `playwright`
+- 테스트용 접속 URL: <http://localhost:포트 또는 스테이징 URL>
+- 시나리오 1: <시나리오 이름>
+  1. `mcp__chrome-devtools__navigate_page` → URL 접속
+  2. `mcp__chrome-devtools__take_snapshot` → DOM 구조 확인
+  3. `mcp__chrome-devtools__click` / `fill` → 사용자 동작 재현
+  4. `mcp__chrome-devtools__list_console_messages` → 콘솔 에러 0건 확인
+  5. `mcp__chrome-devtools__list_network_requests` → 4xx/5xx 0건 확인
+  6. 기대 결과 명시
+- 시나리오 2: ...
+- 검증 항목 체크리스트:
+  - [ ] DOM 렌더링 정상
+  - [ ] 콘솔 에러 0건
+  - [ ] 네트워크 4xx/5xx 0건
+  - [ ] 응답 데이터가 명세와 일치
+
+### Flutter 앱 검증 (Flutter 프로젝트일 때 필수)
+**가능한 모든 테스트 수단을 명시한다.**
+
+- 단위 테스트: `flutter test test/<파일>.dart` — <대상 함수/클래스>
+- 위젯 테스트: `testWidgets(...)` — <대상 위젯>
+- 통합 테스트: `flutter test integration_test/` — <대상 흐름>
+- 골든 테스트: `matchesGoldenFile(...)` — <UI 회귀 검증>
+- 디바이스/시뮬레이터 실행: `flutter run -d <device-id>`
+- 수동 검증 시나리오:
+  - 시나리오 1: <단계별 동작 → 기대 결과>
+  - 시나리오 2: ...
+- 빌드 검증: `flutter build apk --debug` / `flutter build ios --no-codesign`
+- 정적 분석: `flutter analyze` (경고 0건)
+- DevTools 활용: 성능/메모리/네트워크 패널 확인
+
+### 백엔드/API 검증 (백엔드 프로젝트일 때 필수)
+- 단위 테스트: <pytest / phpunit / jest 등>
+- API 호출 검증: `curl` / HTTPie / Postman 컬렉션
+- DB 상태 검증: SQL 쿼리로 데이터 일치 확인
+- 가능하면 Chrome DevTools MCP로 API 응답을 직접 호출하여 검증
+
+### 테스트 통과 기준
+- [ ] 모든 자동화 테스트 통과
+- [ ] MCP 브라우저/디바이스 검증 시나리오 모두 통과
+- [ ] 콘솔/로그에 에러 없음
+- [ ] 정적 분석/린트 경고 0건
+
 ## Risks (리스크)
 - 예상 리스크와 대응 방안
 
@@ -207,11 +269,12 @@ ARGUMENTS 예시:
 |---|---|---|
 | Intent 명확성 | 10 | 무엇을 왜 만드는지 한 문장으로 설명 가능한가 |
 | Context 완전성 | 10 | 기술 스택, 참조 문서, 의존성이 모두 명시되었는가 |
-| Key Flows 구체성 | 15 | 사용자 흐름이 단계별로 구체적인가 |
+| Key Flows 구체성 | 10 | 사용자 흐름이 단계별로 구체적인가 |
 | Entities 완전성 | 10 | 데이터 모델, 필드, 관계가 모두 정의되었는가 |
 | Architecture 실행성 | 15 | 파일 구조, 계층, 핵심 코드가 포함되었는가 |
-| Constraints 명확성 | 10 | must/should/must_not이 구체적인가 |
-| Work Phases 실행성 | 15 | 각 단계의 산출물과 검증 방법이 있는가 |
+| Constraints 명확성 | 5 | must/should/must_not이 구체적인가 |
+| Work Phases 실행성 | 10 | 각 단계의 산출물과 검증 방법이 있는가 |
+| **Test Plan 검증성** | **15** | **사용 가능한 MCP/도구 확인, 시나리오 구체성, 통과 기준 명확** |
 | Acceptance Criteria | 10 | 완료 기준이 체크리스트로 검증 가능한가 |
 | 전체 일관성 | 5 | 문서 내 모순이나 누락이 없는가 |
 
@@ -289,12 +352,15 @@ ARGUMENTS 예시:
 ```
 1. ARGUMENTS에서 구현 대상과 저장 이름을 파악한다
 2. 리포지토리를 조사한다 (현재 상태, 기술 스택, 기존 .dev/ 문서)
-3. .dev/<이름>/ 디렉터리를 생성한다
-4. plan.md 명세서를 작성한다
-5. 자체 채점한다 (0~100점)
-6. 95점 이상이면 "Ready"로 표시하고 사용자에게 보고한다
-7. 95점 미만이면 부족한 부분을 명시하고 사용자에게 보완을 요청한다
-8. 보완 후 재채점한다
+3. 프로젝트 유형(웹/Flutter/백엔드/CLI 등)을 결정한다
+4. 사용 가능한 MCP 도구를 확인한다 (Playwright MCP, Chrome DevTools MCP 등)
+5. .dev/<이름>/ 디렉터리를 생성한다
+6. plan.md 명세서를 작성한다 (Test Plan 섹션 필수 포함)
+7. 자체 채점한다 (0~100점)
+8. 95점 이상이면 "Ready"로 표시한다
+9. 95점 미만이면 부족한 부분을 명시하고 사용자에게 보완을 요청한다
+10. 보완 후 재채점한다
+11. ★ 완료 보고 시 사용자에게 반드시 `/dev:review`로 적대적 리뷰를 수행할 것을 요청한다
 ```
 
 ---
@@ -308,7 +374,46 @@ ARGUMENTS 예시:
 - [ ] Architecture에 파일 구조와 핵심 코드가 포함되었는가
 - [ ] Constraints가 must/should/must_not으로 구분되었는가
 - [ ] Work Phases에 각 단계의 산출물과 검증 방법이 있는가
+- [ ] **Test Plan에 사용 가능한 MCP/테스트 도구와 검증 시나리오가 명시되었는가**
+- [ ] **웹 프로젝트라면 Playwright MCP / Chrome DevTools MCP 사용 시나리오가 포함되었는가**
+- [ ] **Flutter 프로젝트라면 단위/위젯/통합 테스트와 디바이스 검증 시나리오가 모두 포함되었는가**
 - [ ] 자체 채점 점수가 95점 이상인가
 - [ ] 이 명세서만 읽고 `/dev:execute`로 바로 구현을 시작할 수 있는가
+- [ ] **완료 보고 시 사용자에게 `/dev:review` 리뷰 요청 메시지를 포함했는가**
 
 **명세서만 읽고 구현을 시작할 수 없다면, 계획이 완료된 것이 아니다.**
+
+---
+
+## 8. 작성 완료 후 — 반드시 리뷰 요청
+
+명세서 작성과 자체 채점이 끝나면, **반드시 사용자에게 `/dev:review` 명령으로 이 명세서를 적대적(Adversarial) 관점에서 리뷰할 것을 권장한다.**
+
+자체 채점만으로는 다음과 같은 사각지대를 발견하지 못한다:
+- 자기 확증 편향 (Confirmation bias)
+- 미처 생각하지 못한 엣지 케이스
+- 보안/성능/설계의 잠재적 결함
+- 가정에 대한 검증 부재
+- 누락된 비기능 요구사항
+
+### 사용자에게 보내는 완료 보고 메시지 형식
+
+명세서를 작성한 후 사용자에게 다음과 같이 보고한다:
+
+```
+✅ .dev/<폴더>/plan.md 명세서 작성 완료
+- 명세 점수: __/100
+- 상태: Ready | Reviewed | Draft
+
+⚠️ 다음 단계: 반드시 적대적 리뷰를 수행하세요.
+
+다음 명령으로 리뷰를 실행할 수 있습니다:
+
+  /dev:review .dev/<폴더>/plan.md — 이 계획이 실행 가능한지 가차 없이 리뷰해줘
+
+리뷰 결과는 .dev/<폴더>/review.md 에 저장되며,
+적대적 관점에서 발견된 결함/문제/보강사항이 정리됩니다.
+이를 바탕으로 plan.md를 보완한 후 /dev:execute로 구현을 시작하세요.
+```
+
+이 단계를 생략하지 말 것. 리뷰를 거치지 않은 명세서는 실행 단계에서 큰 비용을 초래할 수 있다.
