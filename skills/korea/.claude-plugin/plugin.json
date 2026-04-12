@@ -1,0 +1,9 @@
+{
+  "name": "korea",
+  "version": "2.0.0",
+  "description": "Korea SNS(withcenter.com) REST API를 통한 완전한 콘텐츠 관리. 회원가입, 로그인, 프로필 수정, 게시글/댓글 CRUD, 파일 업로드, 사이트/카테고리 관리를 지원한다. 외부 AI/프로그램에서 Korea SNS에 콘텐츠를 생성·수정·삭제하기 위한 API 가이드.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}
