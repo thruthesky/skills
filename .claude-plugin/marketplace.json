@@ -58,6 +58,12 @@
       "source": "./skills/dev",
       "description": "Harness + AI Lang + SEDAI 개념을 융합한 AI 기반 체계적 소프트웨어 개발 스킬. .dev/ 폴더에 구조화된 명세서를 작성하고, 명세 기반으로 정밀하게 코드를 구현한다. copy(참조 복사), plan(계획 수립), execute(명세 기반 실행), list(현황 조회), refactor(리팩토링 분석), review(코드/설계 리뷰) 워크플로우를 제공한다.",
       "version": "1.6.0"
+    },
+    {
+      "name": "korea",
+      "source": "./skills/korea",
+      "description": "Korea SNS(withcenter.com) REST API를 통한 완전한 콘텐츠 관리 스킬. 회원가입, 로그인, 프로필 수정, 게시글/댓글 CRUD, 파일 업로드, 사이트/카테고리 관리, 좋아요/북마크/리액션을 지원한다. 외부 AI/프로그램에서 Korea SNS에 콘텐츠를 생성·수정·삭제하기 위한 API 가이드.",
+      "version": "2.0.0"
     }
   ]
 }
