@@ -1,7 +1,7 @@
 {
   "name": "team",
-  "version": "1.1.0",
-  "description": "한 팀에서 여러 팀원(A·B·C·D·E·F)이 동시에 작업할 때 필요한 협업 인프라 스킬. Playwright MCP 와 Chrome DevTools MCP 를 상호 배타적(mutual lock)으로 한 번에 한 팀원만 사용하도록 파일 기반 잠금을 강제하고, 모든 팀원의 작업을 git commit · git log · 팀 로그(activity.log + team-<X>.md)를 통해 서로 분석·공유한다. 팀원 A 는 팀 매니저로 업무 분배·모니터링·분석을 담당.",
+  "version": "1.2.0",
+  "description": "한 팀에서 여러 팀원(A·B·C·D·E·F)이 동시에 작업할 때 필요한 협업 인프라 스킬. Playwright MCP 와 Chrome DevTools MCP 를 상호 배타적(mutual lock)으로 한 번에 한 팀원만 사용하도록 파일 기반 잠금을 강제하고, 모든 팀원의 작업을 git commit · git log · 팀 로그(activity.log + team-<X>.md)를 통해 서로 분석·공유한다. 팀원 A 는 더 이상 매니저가 아니며 B·C·D·E·F 와 동등한 실무 팀원이고, 매니저는 사용자가 /team:manage 로 명시적으로 기동하는 별도 역할(Role)이다.",
   "author": {
     "name": "JaeHo Song"
   },
