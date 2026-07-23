@@ -1,0 +1,9 @@
+{
+  "name": "cowork",
+  "version": "1.0.0",
+  "description": "하나의 질문을 claude·codex·grok·kimi 네 AI 에게 동시에 읽기 전용 분석가로 던져 각각 코드를 읽히고, 오케스트레이터가 근거를 코드로 교차검증해 하나의 결론(final-report.md)으로 종합한 뒤 사람에게 보고하고, 요청에 구현이 포함돼 있으면 즉시 구현하는 심층 분석 스킬. 원인 파악·설계 판단·영향 범위·회귀 진단 등 답이 코드 안에 있는 질문에 사용한다.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}
