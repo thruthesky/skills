@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # final-report-stop-hook.sh — Claude Code 의 Stop hook.
 #
-#   설치: bash .claude/skills/cowork/scripts/cowork.sh --init  (settings.json 에 멱등 등록)
+#   설치: bash .claude/skills/cowork/scripts/cowork.sh --init-hook  (settings.json 에 멱등 등록)
+#         ⚠️ --init 은 시스템 프롬프트 .cowork/cowork-prompt.md 를 만드는 별개 명령이다(혼동 주의).
 #   역할: cowork 분석이 끝나 final-report.md 가 만들어진 작업을 찾아, 그 final-report.md 를 4 AI 로
 #         한 번 더 재검토(리뷰 라운드)하도록 백그라운드에 던진다.
 #

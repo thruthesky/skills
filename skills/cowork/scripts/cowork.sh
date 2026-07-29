@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# cowork.sh — claude·codex·grok·kimi 네 AI 를 "읽기 전용 코드 분석가" 아바타로 병렬 실행한다.
+# cowork.sh — claude·codex·grok·kimi 네 AI 를 "읽기 전용 분석가" 아바타로 병렬 실행한다.
 #
 #   사용: bash .claude/skills/cowork/scripts/cowork.sh <slug> <분석 요청 프롬프트>
 #   결과: .cowork/<slug>/claude-cowork.md, codex-cowork.md, grok-cowork.md, kimi-cowork.md
 #
+# 이 스크립트는 **분야를 가리지 않는다.** 작업공간이 소프트웨어 저장소든, 교재·문제은행·레시피·기획서
+# 폴더든 동일하게 동작한다. 작업공간의 성격은 `.cowork/cowork-prompt.md`(사람이 쓴 지침) + 실행 시점 자동
+# 감지로 주입한다 — 특정 분야를 이 스크립트나 페르소나에 하드코딩하지 말 것.
+#
 # 설계 요지
-#   - 네 AI 는 읽기 전용으로 강제된다. AI 자신은 프로젝트 파일을 쓸 수 없고, 분석은 stdout 으로만
+#   - 네 AI 는 읽기 전용으로 강제된다. AI 자신은 작업공간 파일을 쓸 수 없고, 분석은 stdout 으로만
 #     낸다. 파일 기록은 이 스크립트가 한다.
-#     → "코드 절대 수정 금지" 를 프롬프트(부탁)가 아니라 도구/OS 권한(강제)으로 보장한다.
+#     → "절대 수정 금지" 를 프롬프트(부탁)가 아니라 도구/OS 권한(강제)으로 보장한다.
 #   - ⚠️ 방어 수단이 CLI 마다 다른 이유는 실측 결과가 다르기 때문이다. 근거와 재현 절차는
 #     references/readonly-enforcement.md 참고. 임의로 통일하지 말 것(특히 grok·kimi).
 #   - 네 AI 는 동시에 돌린다(가장 느린 하나의 시간만 걸린다).
@@ -34,10 +38,10 @@ COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi}"
 
 # --- 모델·추론 등급 정책 (2026-07-21 사용자 지시: 반드시 최신/최고 모델의 최고 등급) ---------
 # 각 CLI 의 기본값에 맡기지 않고 최고 등급을 명시 고정한다. 근거(실측 2026-07-21):
-#   - claude: `--model claude-opus-4-8`(Opus 4.8 로 고정) + `--effort xhigh`(low~max 중 Extra High).
-#             🛑 2026-07-22 사용자 지시로 claude 분석 모델을 fable 에서 Opus 4.8 로 못 박았다.
-#             별칭 `opus` 가 아니라 전체 ID `claude-opus-4-8` 을 쓰는 이유: 별칭은 "최신 opus" 를
-#             가리켜 상위 버전이 나오면 따라가지만, 여기선 4.8 을 *고정* 해야 하므로 ID 로 핀 고정한다.
+#   - claude: `--model claude-opus-5`(Opus 5 로 고정) + `--effort xhigh`(low~max 중 Extra High).
+#             🛑 2026-07-26 사용자 지시로 claude 분석 모델을 Opus 4.8 에서 Opus 5 로 올려 못 박았다.
+#             별칭 `opus` 가 아니라 전체 ID `claude-opus-5` 를 쓰는 이유: 별칭은 "최신 opus" 를
+#             가리켜 상위 버전이 나오면 따라가지만, 여기선 5 를 *고정* 해야 하므로 ID 로 핀 고정한다.
 #   - codex : 사용자 ~/.codex/config.toml 이 model_reasoning_effort="low" 라서 그대로 두면
 #             저사양으로 분석된다(실측). effort 만 xhigh 로 강제 override 하고, 모델은 config 의
 #             최신 선택(현재 gpt-5.6-sol)을 상속한다(여기 하드코딩하면 구모델 고정 위험).
@@ -47,7 +51,7 @@ COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi}"
 #   - kimi  : K3(kimi-code/k3, 1M context, always_thinking)을 명시 고정. CLI 에 K3 High/XHigh
 #             별도 변형은 존재하지 않는다(K2.7 2종 + K3 뿐) — K3 자체가 항상 thinking 최고 모델.
 # 값을 낮춰야 할 때(요금·속도)만 환경변수로 override 한다. 기본을 낮추지 말 것.
-COWORK_CLAUDE_MODEL="${COWORK_CLAUDE_MODEL:-claude-opus-4-8}"
+COWORK_CLAUDE_MODEL="${COWORK_CLAUDE_MODEL:-claude-opus-5}"
 COWORK_CLAUDE_EFFORT="${COWORK_CLAUDE_EFFORT:-xhigh}"
 COWORK_CODEX_EFFORT="${COWORK_CODEX_EFFORT:-xhigh}"
 COWORK_CODEX_MODEL="${COWORK_CODEX_MODEL:-}"   # 비우면 ~/.codex/config.toml 의 최신 모델 상속
@@ -70,20 +74,23 @@ usage() {
   cat >&2 <<'EOF'
 사용법: cowork.sh <폴더명> <분석 요청 프롬프트>
         cowork.sh --list
-        cowork.sh --init
+        cowork.sh --init [--force]
+        cowork.sh --init-hook
         cowork.sh --review <폴더명>
 
-  <폴더명>   .cowork/<폴더명>/ — 작업 ID 역할. 소문자·숫자·하이픈만 (예: mob-spawn-lag)
-             사람 개발자가 지정한 이름을 그대로 쓴다(임의로 바꾸지 말 것).
+  <폴더명>   .cowork/<폴더명>/ — 작업 ID 역할. 소문자·숫자·하이픈만 (예: tetris-scoring)
+             사람이 지정한 이름을 그대로 쓴다(임의로 바꾸지 말 것).
   <프롬프트> 분석 요청 원문. 여러 단어면 따옴표로 감싸거나 그대로 나열.
   --list     .cowork/ 의 작업 목록과 상태를 보여준다(-l). 동시 진행 중인 작업 파악용.
-  --init     이 프로젝트 .claude/settings.json 의 Stop hook 에 final-report 리뷰를 멱등 설치한다.
+  --init     .cowork/cowork-prompt.md (이 작업공간의 공통 지침) 초안을 만든다. 4 AI 분석마다 주입된다.
+             이미 있으면 건드리지 않는다(사람이 다듬은 내용 보호). 덮어쓰려면 --force.
+  --init-hook  이 프로젝트 .claude/settings.json 의 Stop hook 에 final-report 리뷰를 멱등 설치한다.
   --review   <폴더명>의 final-report.md 를 4 AI 로 재검토해 갱신한다(보통 Stop hook 이 백그라운드로 호출).
 
 환경변수:
   COWORK_TIMEOUT        AI 1개당 제한 시간(초, 기본 900)
   COWORK_ONLY           실행할 AI 목록(기본 claude,codex,grok,kimi)
-  COWORK_CLAUDE_MODEL   claude 모델(기본 claude-opus-4-8 = Opus 4.8 고정)
+  COWORK_CLAUDE_MODEL   claude 모델(기본 claude-opus-5 = Opus 5 고정)
   COWORK_CLAUDE_EFFORT  claude 추론 등급(기본 xhigh)
   COWORK_CODEX_MODEL    codex 모델(기본 빈값 = ~/.codex/config.toml 의 최신 모델 상속)
   COWORK_CODEX_EFFORT   codex 추론 등급(기본 xhigh — config 의 low 를 override)
@@ -92,8 +99,9 @@ usage() {
   COWORK_KIMI_MODEL     kimi 모델(기본 kimi-code/k3 = K3 최고 모델)
 
 예:
-  bash .claude/skills/cowork/scripts/cowork.sh mob-spawn-lag "몹이 몰릴 때 FPS 가 떨어지는 원인 분석"
-  COWORK_ONLY=grok COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh mob-spawn-lag "..."
+  bash .claude/skills/cowork/scripts/cowork.sh login-timeout "로그인이 가끔 끊기는 원인 분석"
+  bash .claude/skills/cowork/scripts/cowork.sh grade3-fractions "초등 3학년 분수 단원 구성이 적절한지 검토"
+  COWORK_ONLY=grok COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh login-timeout "..."
   bash .claude/skills/cowork/scripts/cowork.sh --list
   bash .claude/skills/cowork/scripts/cowork.sh --init
 EOF
@@ -108,6 +116,114 @@ wants() { [[ ",$COWORK_ONLY," == *",$1,"* ]]; }
 # 분석·리뷰·종합이 모두 쓰므로 case 분기보다 앞에 둔다.
 extract_block() { # <파일> <태그>
   sed -n "/^---BEGIN $2---$/,/^---END $2---$/p" "$1" | sed '1d;$d'
+}
+
+# --- 작업공간 감지 ------------------------------------------------------------
+# 이 스킬은 어떤 작업공간에나 복사돼 쓰인다 — 소프트웨어 저장소일 수도, 교재·문제은행·레시피·기획서
+# 폴더일 수도 있다. 그래서 "무슨 작업공간인가" 를 페르소나에 하드코딩하지 않고 실행 시점에 감지한다.
+#
+# 🛑 왜 필요한가 (실측 사고 2026-07-17): 페르소나에 특정 게임 프로젝트 전용 문구가 박혀 있던 탓에
+#    전혀 다른 웹 프로젝트에서 돌리자 세 AI 전부가 존재하지 않는 디렉토리를 찾아 헤맸고, 보고서에
+#    "실제 저장소는 그 프로젝트가 아니다" 라고 적었다. 분석 1회가 통째로 낭비됐다.
+#
+# 감지 원칙: 얕게·빠르게. 여기서 작업공간을 완벽히 파악할 필요는 없다 — 각 CLI 는 cwd 의 지침 문서를
+# 스스로 읽고, 페르소나가 "지침 문서를 먼저 열어라"고 지시한다. 이 블록은 그 출발점만 준다.
+detect_workspace_facts() {
+  local root="$1" name docs stack f types
+  name="$(basename "$root")"
+
+  # 도구·스택 힌트: 루트의 매니페스트 파일로만 판정한다(파일 존재 = 사실, 추측 아님).
+  # 소프트웨어가 아닌 작업공간에서는 하나도 안 걸리는 것이 정상이다 — 그때는 파일 종류로 판단한다.
+  stack=""
+  [ -f "$root/pubspec.yaml" ]     && stack+="Flutter/Dart(pubspec.yaml), "
+  [ -f "$root/package.json" ]     && stack+="Node/JS(package.json), "
+  [ -f "$root/go.mod" ]           && stack+="Go(go.mod), "
+  [ -f "$root/Cargo.toml" ]       && stack+="Rust(Cargo.toml), "
+  [ -f "$root/composer.json" ]    && stack+="PHP(composer.json), "
+  [ -f "$root/pom.xml" ]          && stack+="Java/Maven(pom.xml), "
+  [ -f "$root/build.gradle" ] || [ -f "$root/build.gradle.kts" ] && stack+="Gradle, "
+  [ -f "$root/requirements.txt" ] || [ -f "$root/pyproject.toml" ] && stack+="Python, "
+  [ -f "$root/Gemfile" ]          && stack+="Ruby(Gemfile), "
+  [ -f "$root/project.godot" ]    && stack+="Godot(project.godot), "
+  [ -f "$root/docker-compose.yml" ] || [ -f "$root/docker-compose.yaml" ] && stack+="Docker Compose, "
+  stack="${stack%, }"
+  [ -n "$stack" ] || stack="(개발 매니페스트 없음 — 코드 프로젝트가 아닐 수 있다. 아래 파일 종류를 보라)"
+
+  # 파일 종류 분포: 분야를 가리지 않는 감지 수단. 코드든 문서든 데이터든 "무엇이 많은가" 를 보여준다.
+  # maxdepth 3 · 숨김/의존성 폴더 제외로 큰 작업공간에서도 빠르게 끝낸다.
+  types="$(find "$root" -maxdepth 3 -type f \
+             -not -path '*/.*' \
+             -not -path '*/node_modules/*' -not -path '*/vendor/*' \
+             -not -path '*/build/*' -not -path '*/dist/*' 2> /dev/null \
+           | sed -n 's/.*\.\([A-Za-z0-9]\{1,8\}\)$/\1/p' \
+           | tr 'A-Z' 'a-z' | sort | uniq -c | sort -rn | head -8 \
+           | awk '{printf "%s(%s), ", $2, $1}')"
+  types="${types%, }"
+  [ -n "$types" ] || types="(확장자 있는 파일을 찾지 못함)"
+
+  # 지침 문서: 루트의 .md (CLAUDE.md·AGENTS.md·README.md 등). AI 가 먼저 읽어야 할 것들.
+  docs=""
+  for f in "$root"/*.md; do
+    [ -f "$f" ] || continue
+    docs+="$(basename "$f"), "
+  done
+  docs="${docs%, }"
+  [ -n "$docs" ] || docs="(루트에 마크다운 지침 문서 없음)"
+
+  # 하위 디렉토리 개요: 자료가 어디 있는지의 첫 단서(숨김/빌드 산출물 제외).
+  local dirs=""
+  for f in "$root"/*/; do
+    [ -d "$f" ] || continue
+    case "$(basename "$f")" in
+      node_modules | build | dist | .* | outputs | vendor) continue ;;
+    esac
+    dirs+="$(basename "$f")/ "
+  done
+  [ -n "$dirs" ] || dirs="(없음)"
+
+  printf -- '- **작업공간 이름**: `%s`\n' "$name"
+  printf -- '- **작업공간 경로**: `%s`\n' "$root"
+  printf -- '- **감지된 개발 스택**: %s\n' "$stack"
+  printf -- '- **파일 종류 분포**: %s\n' "$types"
+  printf -- '- **루트 지침 문서**: %s\n' "$docs"
+  printf -- '- **최상위 디렉토리**: %s\n' "$dirs"
+}
+
+# 4 AI 에게 주입할 "대상 작업공간" 블록을 만든다.
+#
+# `.cowork/cowork-prompt.md` 는 **이 작업공간의 시스템 프롬프트** 다 — 프로젝트의 특성·기획·계획·아바타
+# (persona)·디자인·로직·개념을 사람이 정의해 두는 곳이고, cowork 는 어떤 분석을 하든 이것을 **반드시**
+# 4 AI 에게 먹인다. 자동 감지는 그 아래 보조 사실일 뿐이다(파일 존재로 알 수 있는 것만).
+#
+# 이 함수의 반환값은 페르소나의 {{PROJECT_CONTEXT}} 에 치환된다 → 분석(claude·codex·kimi)·grok
+# pass1·pass2·리뷰 라운드가 **전부 같은 페르소나 문자열을 쓰므로 한 곳만 고치면 모든 경로에 전파된다.**
+# 새 실행 경로를 추가할 때도 persona 를 그대로 쓰면 cowork-prompt.md 주입이 자동으로 따라온다.
+build_project_context() {
+  local root="$1"
+  # 🛑 `local root="$1" pf="$root/…"` 처럼 한 줄에 쓰지 말 것. local 의 인자는 local 이 실행되기 *전에*
+  #    모두 확장되므로 그 시점에 root 는 아직 없고, `set -u` 가 unbound variable 로 죽인다. 이 함수는
+  #    명령 치환($(…)) 안에서 불리므로 죽어도 서브셸만 조용히 끝나 **빈 컨텍스트가 주입된다**
+  #    (2026-07-26 실측: 시스템 프롬프트가 통째로 누락됐는데 경고 한 줄 없었다). 반드시 줄을 나눈다.
+  local pf="$root/.cowork/cowork-prompt.md"
+  # 하위 호환: 예전 이름(`.cowork/prompt.md`)만 있는 프로젝트는 그것을 읽는다. 파일명을 바꾸는 순간
+  # 기존 작업공간이 시스템 프롬프트를 **조용히** 잃는 사고를 막는다(경고는 주 실행부에서 낸다).
+  [ -f "$pf" ] || pf="$root/.cowork/prompt.md"
+  if [ -f "$pf" ]; then
+    printf '### 🛑 이 작업공간의 시스템 프롬프트 — `.cowork/%s` (최우선 · 반드시 따르라)\n\n' "$(basename "$pf")"
+    printf '아래는 이 작업공간의 담당자가 직접 작성한 지침이다. 이 프로젝트의 **특성·기획·계획·아바타\n'
+    printf '(persona)·디자인·로직·개념**이 여기 정의돼 있다. **당신의 분석 전체가 이 내용을 전제로\n'
+    printf '이뤄져야 한다** — 여기 적힌 목적·역할·규칙·용어를 그대로 따르라. 아래 자동 감지 사실이나\n'
+    printf '당신의 일반 상식과 어긋나면 **이 문서가 맞다.** 여기 명시된 제약을 어긴 권고는 채택되지 않는다.\n\n'
+    printf -- '---\n\n'
+    cat "$pf"
+    printf '\n\n---\n\n'
+    printf '### 자동 감지 사실 (보조 — 위 시스템 프롬프트와 어긋나면 위가 맞다)\n\n'
+  else
+    printf '### 이 작업공간에는 시스템 프롬프트(`.cowork/cowork-prompt.md`)가 없다\n\n'
+    printf '작업공간의 목적·역할·규칙이 명시돼 있지 않다. 아래 감지 사실과 실제 자료를 직접 열어\n'
+    printf '파악하되, 넘겨짚은 전제는 §6 에 불확실성으로 남겨라.\n\n'
+  fi
+  detect_workspace_facts "$root"
 }
 
 # --- perl 워치독: macOS 에 timeout(1) 이 없다 --------------------------------
@@ -234,10 +350,92 @@ run_oneshot() {
   esac
 }
 
-# --- --init: Stop hook 멱등 설치 --------------------------------------------
+# --- --init: .cowork/cowork-prompt.md 초안 생성 -------------------------------------
+# 이 작업공간에서 4 AI 에게 매번 주입할 공통 지침 파일을 만든다(Overview·Persona·Instructions·Tech stack).
+# 자동 감지로 뼈대와 사실만 채운다 — 나머지는 사람(또는 오케스트레이터)이 채워야 제 값을 한다.
+#
+# 🛑 이미 있으면 덮어쓰지 않는다. 사람이 다듬은 지침을 재실행 한 번으로 날리면 안 된다(--force 로만 교체).
+do_init_prompt() {
+  local force="${1:-}"
+  local dir="$REPO_ROOT/.cowork"
+  local pf="$dir/cowork-prompt.md"
+
+  mkdir -p "$dir" || die "작업 폴더를 만들 수 없다: $dir"
+
+  # 예전 이름(`.cowork/prompt.md`)만 있으면 새 이름으로 옮긴다 — 사람이 쓴 내용을 잃지 않는다.
+  if [ ! -f "$pf" ] && [ -f "$dir/prompt.md" ]; then
+    mv "$dir/prompt.md" "$pf" \
+      && printf '🔁 예전 이름을 새 이름으로 옮겼다: .cowork/prompt.md → .cowork/cowork-prompt.md\n' >&2
+  fi
+
+  if [ -f "$pf" ] && [ "$force" != "--force" ]; then
+    printf '⏭️  이미 있다 — 건드리지 않았다: .cowork/cowork-prompt.md\n' >&2
+    printf '    내용을 보고 직접 다듬어라. 감지 결과로 새로 만들려면: cowork.sh --init --force\n' >&2
+    return 0
+  fi
+  [ -f "$pf" ] && cp "$pf" "$pf.bak" && printf '📦 기존 파일 백업: .cowork/cowork-prompt.md.bak\n' >&2
+
+  local facts; facts="$(detect_workspace_facts "$REPO_ROOT")"
+  local wsname; wsname="$(basename "$REPO_ROOT")"
+
+  cat > "$pf" <<EOF
+# cowork 시스템 프롬프트 — $wsname
+
+> 🛑 이 파일은 \`cowork\` 이 claude·codex·grok·kimi **네 AI 에게 분석을 시킬 때마다 프롬프트 맨 앞에
+> 반드시 주입** 하는 **이 프로젝트의 시스템 프롬프트** 다. 네 AI 는 매번 이 문서를 전제로 분석한다.
+>
+> 이 프로젝트의 **특성·기획·계획·아바타(persona)·디자인·로직·개념** 을 여기에 적어 두면, 어떤 분석을
+> 시키든 네 AI 가 같은 맥락 위에서 답한다. 반대로 비워 두면 네 AI 는 프로젝트의 목적을 모른 채
+> 일반론으로 분석한다 — **채울수록 결과가 좋아지는 파일이다.**
+>
+> \`cowork.sh --init\` 이 자동 감지로 만든 **초안** 이다. 아래 네 절은 뼈대일 뿐이니, 필요하면 절을
+> 더 추가하라(\`## 기획\`, \`## 용어 정의\`, \`## 설계 규칙\`, \`## 데이터 구조\`, \`## 금지사항\` …).
+>
+> ⚠️ 네 AI 는 읽기 전용이다. 이 문서에 "파일을 만들어라" 같은 지시를 써도 물리적으로 실행되지 않는다
+> (실제 작업은 종합(final-report.md)을 마친 오케스트레이터가 한다).
+
+## Overview
+
+(이 프로젝트가 **무엇인지**, 무엇을 만들고 있고 지금 어느 단계인지, 그리고 4 AI 에게 **무엇을
+ 시키려는지** 를 쓴다. 프로젝트의 특성·기획 의도·목표·계획을 여기에 담는다.
+ 예: "초등 3~4학년 수학 교재를 만드는 프로젝트. 현재 1학기 분수 단원 초안까지 나왔다.
+ 단원 구성·난이도 배열·오답 유형의 타당성을 네 AI 에게 교차 검증시킨다."
+ 예: "웹 브라우저용 테트리스. 코어 로직은 완성, 지금은 난이도 곡선과 조작감을 다듬는 단계다.")
+
+## Persona
+
+(4 AI 가 **어떤 전문가 역할(아바타)** 로 분석해야 하는지 쓴다. 이 프로젝트의 분야에 맞는 인격을
+ 부여하면 분석의 관점 자체가 달라진다.
+ 예: "초등 수학 교육과정 설계 전문가이자 아동 인지발달 관점의 교재 검수자."
+ 예: "낙하형 퍼즐 게임의 조작감·난이도 곡선을 설계해 온 시니어 게임 디자이너.")
+
+## Instructions
+
+(분석 시 **반드시 지킬 규칙·개념·설계 로직·우선순위·금지사항** 을 쓴다. 이 프로젝트의 불변 규칙과
+ 핵심 개념을 여기에 정의해 두면 네 AI 가 그것을 어기는 권고를 하지 않는다.
+ 예:
+ - 모든 주장에는 \`파일:줄\` 근거를 붙이고, 근거 없는 주장은 \`[추측]\` 으로 표시한다.
+ - 대상 독자는 만 9~10세다. 그 어휘 수준을 넘는 제안은 하지 않는다.
+ - "레벨" 은 낙하 속도 단계를 뜻한다. 점수 구간과 혼동하지 말 것.
+ - 기존 단원 번호 체계는 불변이다. 재배열을 전제로 한 권고는 하지 않는다.)
+
+## Tech stack
+
+(이 프로젝트를 구성하는 **기술·도구·파일 형식·자료 구조·디자인 규격** 을 쓴다. 소프트웨어가 아니면
+ 사용하는 문서 형식·템플릿·산출물 규격을 쓴다. 아래는 자동 감지 결과이니 직접 확인해 고쳐라.)
+
+$facts
+EOF
+
+  printf '✅ 생성: .cowork/cowork-prompt.md\n' >&2
+  printf '   4 AI 분석마다 이 파일이 프롬프트에 주입된다. 네 절(Overview·Persona·Instructions·Tech stack)을\n' >&2
+  printf '   이 작업공간에 맞게 채워라 — 채울수록 분석 품질이 올라간다.\n' >&2
+}
+
+# --- --init-hook: Stop hook 멱등 설치 ----------------------------------------
 # 이 프로젝트 .claude/settings.json 의 hooks.Stop 에 final-report-stop-hook.sh 를 추가한다.
-# 이미 있으면 아무것도 하지 않는다(멱등). 기존 Stop hook(colla 등)은 보존한다.
-do_init() {
+# 이미 있으면 아무것도 하지 않는다(멱등). 기존 Stop hook 은 보존한다.
+do_init_hook() {
   local settings="$REPO_ROOT/.claude/settings.json"
   local hookcmd='bash .claude/skills/cowork/scripts/final-report-stop-hook.sh'
   command -v jq > /dev/null 2>&1 || die "jq 가 필요하다(brew install jq)."
@@ -296,6 +494,8 @@ do_review() {
   local rprompt="$rdir/.review-prompt.md"
   {
     printf '%s\n\n' "$rpersona"
+    # 리뷰어도 이 작업공간이 무슨 분야인지 알아야 권고의 실현성을 판정할 수 있다(분석 라운드와 동일 소스).
+    printf -- '## 대상 작업공간\n\n%s\n\n---\n\n' "$(build_project_context "$REPO_ROOT")"
     printf '## 검토 대상 작업\n\n폴더: `.cowork/%s/`\n\n---\n\n' "$slug"
     printf '## final-report.md (검토할 종합본)\n\n'
     cat "$report"
@@ -412,13 +612,14 @@ list_coworks() {
 REVIEW_MODE=0
 case "${1:-}" in
   --list | -l) list_coworks; exit 0 ;;
-  --init) do_init; exit 0 ;;
+  --init) do_init_prompt "${2:-}"; exit 0 ;;
+  --init-hook) do_init_hook; exit 0 ;;
   --review) REVIEW_MODE=1; REVIEW_SLUG="${2:-}" ;;
 esac
 
 # 리뷰 모드는 분석 준비(SLUG 파싱·프롬프트 조립·러너 정의)를 건너뛰고 스크립트 하단에서 do_review 만 돈다.
 if [ "$REVIEW_MODE" = 1 ]; then
-  [ -n "${REVIEW_SLUG:-}" ] || die "--review 에는 폴더명이 필요하다. 예: cowork.sh --review mob-spawn-lag"
+  [ -n "${REVIEW_SLUG:-}" ] || die "--review 에는 폴더명이 필요하다. 예: cowork.sh --review login-timeout"
   do_review "$REVIEW_SLUG"
   exit $?
 fi
@@ -429,7 +630,7 @@ PROMPT_TEXT="$*"
 
 # 폴더명 = 작업 ID. 사람이 지정한 값을 그대로 쓰되 파일시스템에 안전한 형태만 허용한다.
 [[ "$SLUG" =~ ^[a-z0-9][a-z0-9-]*$ ]] \
-  || die "폴더명은 소문자·숫자·하이픈만 가능하다(작업 ID): '$SLUG'  예: mob-spawn-lag"
+  || die "폴더명은 소문자·숫자·하이픈만 가능하다(작업 ID): '$SLUG'  예: login-timeout"
 [ -n "${PROMPT_TEXT// /}" ] || die "분석 요청 프롬프트가 비어 있다."
 [ -f "$PERSONA_FILE" ] || die "아바타 페르소나 파일이 없다: $PERSONA_FILE"
 
@@ -454,65 +655,12 @@ printf '%s\n%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$PROMPT_TEXT" > "$OUT_DIR/.rev
 persona="$(extract_block "$PERSONA_FILE" PERSONA)"
 [ -n "$persona" ] || die "페르소나 마커(---BEGIN PERSONA---)를 찾지 못했다: $PERSONA_FILE"
 
-# --- 프로젝트 자동 감지 -------------------------------------------------------
-# 이 스킬은 어떤 저장소에나 복사돼 쓰인다. 그래서 "무슨 프로젝트인가" 를 페르소나에 하드코딩하지 않고
-# 실행 시점에 감지해 주입한다.
-#
-# 🛑 왜 필요한가 (실측 사고 2026-07-17): 페르소나에 "당신은 라리엔 v5 게임 개발 분석가다"가 박혀 있던
-#    탓에 SvelteKit 웹 프로젝트에서 돌리자 세 AI 전부가 없는 game-server/·lib/ 를 찾아 헤맸고, 보고서에
-#    "실제 저장소는 라리엔이 아니다"라고 적었다. 분석 1회가 통째로 낭비됐다.
-#
-# 감지 원칙: 얕게·빠르게. 여기서 스택을 완벽히 알아낼 필요는 없다 — 각 CLI 는 cwd 의 CLAUDE.md/AGENTS.md
-# 를 스스로 읽고, 페르소나가 "지침 문서를 먼저 열어라"고 지시한다. 이 블록은 그 출발점만 준다.
-detect_project_context() {
-  local root="$1" name docs stack f
-  name="$(basename "$root")"
+# --- 대상 작업공간 블록 조립 ---------------------------------------------------
+# 사람이 쓴 .cowork/cowork-prompt.md(있으면 최우선) + 자동 감지 사실.
+# 함수 정의(detect_workspace_facts·build_project_context)와 그 근거는 이 스크립트 상단에 있다.
+project_context="$(build_project_context "$REPO_ROOT")"
 
-  # 스택 힌트: 루트의 매니페스트 파일로만 판정한다(파일 존재 = 사실, 추측 아님).
-  stack=""
-  [ -f "$root/pubspec.yaml" ]     && stack+="Flutter/Dart(pubspec.yaml), "
-  [ -f "$root/package.json" ]     && stack+="Node/JS(package.json), "
-  [ -f "$root/go.mod" ]           && stack+="Go(go.mod), "
-  [ -f "$root/Cargo.toml" ]       && stack+="Rust(Cargo.toml), "
-  [ -f "$root/composer.json" ]    && stack+="PHP(composer.json), "
-  [ -f "$root/pom.xml" ]          && stack+="Java/Maven(pom.xml), "
-  [ -f "$root/build.gradle" ] || [ -f "$root/build.gradle.kts" ] && stack+="Gradle, "
-  [ -f "$root/requirements.txt" ] || [ -f "$root/pyproject.toml" ] && stack+="Python, "
-  [ -f "$root/Gemfile" ]          && stack+="Ruby(Gemfile), "
-  [ -f "$root/docker-compose.yml" ] || [ -f "$root/docker-compose.yaml" ] && stack+="Docker Compose, "
-  stack="${stack%, }"
-  [ -n "$stack" ] || stack="(매니페스트 파일로 감지되지 않음 — 저장소를 직접 훑어 확인하라)"
-
-  # 지침 문서: 루트의 대문자 .md (CLAUDE.md·AGENTS.md·README.md·SSOT.md 등). AI 가 먼저 읽어야 할 것들.
-  docs=""
-  for f in "$root"/*.md; do
-    [ -f "$f" ] || continue
-    docs+="$(basename "$f"), "
-  done
-  docs="${docs%, }"
-  [ -n "$docs" ] || docs="(루트에 마크다운 지침 문서 없음)"
-
-  # 하위 디렉토리 개요: 코드가 어디 있는지의 첫 단서(숨김/빌드 산출물 제외).
-  local dirs=""
-  for f in "$root"/*/; do
-    [ -d "$f" ] || continue
-    case "$(basename "$f")" in
-      node_modules | build | dist | .* | outputs | vendor) continue ;;
-    esac
-    dirs+="$(basename "$f")/ "
-  done
-  [ -n "$dirs" ] || dirs="(없음)"
-
-  printf -- '- **저장소 이름**: `%s`\n' "$name"
-  printf -- '- **저장소 경로**: `%s`\n' "$root"
-  printf -- '- **감지된 스택**: %s\n' "$stack"
-  printf -- '- **루트 지침 문서**: %s\n' "$docs"
-  printf -- '- **최상위 디렉토리**: %s\n' "$dirs"
-}
-
-project_context="$(detect_project_context "$REPO_ROOT")"
-
-# 페르소나의 {{PROJECT_CONTEXT}} 자리를 감지 결과로 치환한다.
+# 페르소나의 {{PROJECT_CONTEXT}} 자리를 조립 결과로 치환한다.
 # 🛑 bash 자체 치환(${var/pat/rep})만 쓴다. sed 는 치환문의 `/`(경로)·`&` 에 깨지고,
 #    awk -v 는 값에 개행이 있으면 "newline in string" 으로 죽는다(둘 다 실측 실패).
 #    감지 결과는 여러 줄이고 경로를 포함하므로 bash 치환이 유일하게 안전하다.
@@ -572,7 +720,7 @@ finalize() {
   {
     printf '<!-- cowork:%s | %s | exit=0 | %ss -->\n' "$name" "$stamp" "$secs"
     printf '# %s 분석 — %s\n\n' "$name" "$SLUG"
-    printf '> 요청: %s\n> 생성: %s · 소요 %ss · 읽기 전용 분석(코드 미수정)\n\n---\n\n' \
+    printf '> 요청: %s\n> 생성: %s · 소요 %ss · 읽기 전용 분석(작업공간 미수정)\n\n---\n\n' \
       "$PROMPT_TEXT" "$stamp" "$secs"
     printf '%s\n' "$body"
   } > "$file"
@@ -755,7 +903,18 @@ run_kimi() {
 # --- 병렬 실행 --------------------------------------------------------------
 printf '🔍 cowork: %s\n' "$SLUG" >&2
 printf '   요청: %s\n' "$PROMPT_TEXT" >&2
-printf '   출력: .cowork/%s/  (제한 %ss · 대상 %s)\n\n' "$SLUG" "$COWORK_TIMEOUT" "$COWORK_ONLY" >&2
+printf '   출력: .cowork/%s/  (제한 %ss · 대상 %s)\n' "$SLUG" "$COWORK_TIMEOUT" "$COWORK_ONLY" >&2
+if [ -f "$REPO_ROOT/.cowork/cowork-prompt.md" ]; then
+  printf '   지침: .cowork/cowork-prompt.md 를 4 AI 에 주입함\n\n' >&2
+elif [ -f "$REPO_ROOT/.cowork/prompt.md" ]; then
+  # 예전 이름 — 읽어는 주되(하위 호환), 새 이름으로 바꾸라고 알린다.
+  printf '   지침: .cowork/prompt.md 를 4 AI 에 주입함 (예전 이름)\n' >&2
+  printf '   ⚠️  파일명이 바뀌었다 — `mv .cowork/prompt.md .cowork/cowork-prompt.md` 로 옮겨라.\n\n' >&2
+else
+  # 시스템 프롬프트가 없으면 네 AI 가 프로젝트 목적을 모른 채 일반론으로 분석한다 — 사람에게 알린다.
+  printf '   💡 .cowork/cowork-prompt.md 가 없다 — `cowork.sh --init` 으로 이 프로젝트의 시스템 프롬프트\n' >&2
+  printf '      (특성·기획·계획·페르소나·로직·개념)를 만들어 두면 이후 모든 분석 품질이 올라간다.\n\n' >&2
+fi
 
 declare -a NAMES=() PIDS=()
 for ai in claude codex grok kimi; do
@@ -765,7 +924,7 @@ for ai in claude codex grok kimi; do
 done
 [ "${#PIDS[@]}" -gt 0 ] || die "실행할 AI 가 없다. COWORK_ONLY='$COWORK_ONLY' 를 확인하라."
 
-printf '\n   … %d개 AI 가 동시에 코드를 읽는 중 (수 분 소요)\n\n' "${#PIDS[@]}" >&2
+printf '\n   … %d개 AI 가 동시에 작업공간을 읽는 중 (수 분 소요)\n\n' "${#PIDS[@]}" >&2
 
 ok=0; fail=0
 declare -a FAILED=()
@@ -820,7 +979,7 @@ $cowork_files  2. 결론을 좌우하는 근거(파일:줄)를 실제로 열어 
   5. 사용자 요청에 구현·수정이 포함돼 있었다면 보고 직후 되묻지 말고 즉시 구현하라
        (final-report.md §7 권고 = 작업 지시서. 분석만 요청받았으면 여기서 멈춘다)
 
-  ⚠️ 종합(final-report.md) 완성 전에는 코드를 수정하지 말라 — 검증 전 주장은 환각일 수 있다.
+  ⚠️ 종합(final-report.md) 완성 전에는 무엇도 수정하지 말라 — 검증 전 주장은 환각일 수 있다.
   ⚠️ 지금 다른 작업 중이어도 이 종합을 건너뛰지 말라. 먼저 끝내고 하던 일로 돌아가라.
      종합이 안 끝난 작업 확인:  bash .claude/skills/cowork/scripts/cowork.sh --list
 ════════════════════════════════════════════════════════════════
