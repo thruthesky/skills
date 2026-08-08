@@ -48,8 +48,14 @@ COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi}"
 #   - grok  : 모델은 grok-4.5 단일(default=최고)이라 미지정이 곧 최신. effort 는 CLI 가
 #             high/medium/low 만 지원(xhigh 는 "unknown effort level" 로 거절 — 2026-07-21 실측).
 #             정책상 xhigh 급을 쓰되, grok 에 xhigh 가 없으면 그냥 high 로 쓴다(아래 정규화).
-#   - kimi  : K3(kimi-code/k3, 1M context, always_thinking)을 명시 고정. CLI 에 K3 High/XHigh
-#             별도 변형은 존재하지 않는다(K2.7 2종 + K3 뿐) — K3 자체가 항상 thinking 최고 모델.
+#   - kimi  : K3 256K(kimi-code/k3-256k)를 명시 고정. K3 계열은 k3(1M context)와 k3-256k(256K)
+#             두 가지인데, **반드시 k3-256k 를 쓴다** — 같은 K3 성능에 context quota 를 약 2배
+#             절약한다(2026-08-08 사용자 지시). 분석 1건이 1M 컨텍스트를 쓸 일은 없으므로
+#             1M 짜리 k3 는 quota 만 축낸다. K3 자체가 always_thinking 최고 모델이라
+#             High/XHigh 별도 변형은 존재하지 않는다.
+#             🛑 이 별칭은 사용자 ~/.kimi-code/config.toml 에 [models."kimi-code/k3-256k"]
+#                항목이 있어야 동작한다(없으면 kimi 가 config.invalid 로 즉시 거절). 아래
+#                check_kimi_model_alias() 가 실행 전에 점검해 안내한다.
 # 값을 낮춰야 할 때(요금·속도)만 환경변수로 override 한다. 기본을 낮추지 말 것.
 COWORK_CLAUDE_MODEL="${COWORK_CLAUDE_MODEL:-claude-opus-5}"
 COWORK_CLAUDE_EFFORT="${COWORK_CLAUDE_EFFORT:-xhigh}"
@@ -66,9 +72,29 @@ esac
 # grok headless 가 도구 승인 레이스/부모 세션 leader 충돌로 빈 응답(exit 99) 나는 경우 재시도 횟수
 # (2026-07-21 실측: permission_cancelled → turn 취소 → stdout 0B). 기본 3회.
 COWORK_GROK_RETRIES="${COWORK_GROK_RETRIES:-3}"
-COWORK_KIMI_MODEL="${COWORK_KIMI_MODEL:-kimi-code/k3}"
+COWORK_KIMI_MODEL="${COWORK_KIMI_MODEL:-kimi-code/k3-256k}"
 
 die() { printf '오류: %s\n' "$1" >&2; exit 1; }
+
+# kimi 는 `-m` 에 config.toml 의 **별칭** 을 받는다. 등록돼 있지 않으면 API 에 닿기도 전에
+# `config.invalid: Model "..." is not configured` 로 즉시 거절당한다(2026-08-08 실측).
+# 네 AI 중 하나가 통째로 빠진 채 분석이 끝나는 사고를 막으려고 실행 전에 점검해 안내한다.
+# (안내만 하고 진행한다 — 사용자의 개인 설정 파일을 스크립트가 임의로 고치지 않는다.)
+check_kimi_model_alias() {
+  local cfg="$HOME/.kimi-code/config.toml"
+  [ -f "$cfg" ] || return 0
+  grep -q "^\[models\.\"$COWORK_KIMI_MODEL\"\]" "$cfg" && return 0
+  printf '⚠️  kimi 모델 별칭이 등록돼 있지 않다: %s\n' "$COWORK_KIMI_MODEL" >&2
+  printf '    이대로면 kimi 분석만 실패한다. %s 에 아래를 추가하라:\n\n' "$cfg" >&2
+  printf '    [models."%s"]\n' "$COWORK_KIMI_MODEL" >&2
+  printf '    provider = "managed:kimi-code"\n' >&2
+  printf '    model = "%s"\n' "${COWORK_KIMI_MODEL#*/}" >&2
+  printf '    max_context_size = 262144\n' >&2
+  printf '    capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use" ]\n' >&2
+  printf '    display_name = "K3 256K"\n' >&2
+  printf '    support_efforts = [ "low", "high", "max" ]\n' >&2
+  printf '    default_effort = "high"\n\n' >&2
+}
 
 usage() {
   cat >&2 <<'EOF'
@@ -96,7 +122,8 @@ usage() {
   COWORK_CODEX_EFFORT   codex 추론 등급(기본 xhigh — config 의 low 를 override)
   COWORK_GROK_EFFORT    grok 추론 등급(기본 high; xhigh 등 미지원 값은 high 로 폴백)
   COWORK_GROK_RETRIES   grok 빈응답/실패 시 재시도 횟수(기본 3)
-  COWORK_KIMI_MODEL     kimi 모델(기본 kimi-code/k3 = K3 최고 모델)
+  COWORK_KIMI_MODEL     kimi 모델(기본 kimi-code/k3-256k = K3 256K. 1M 짜리 k3 보다 context
+                        quota 를 약 2배 절약한다 — 특별한 이유 없이 k3 로 되돌리지 말 것)
 
 예:
   bash .claude/skills/cowork/scripts/cowork.sh login-timeout "로그인이 가끔 끊기는 원인 분석"
@@ -915,6 +942,8 @@ else
   printf '   💡 .cowork/cowork-prompt.md 가 없다 — `cowork.sh --init` 으로 이 프로젝트의 시스템 프롬프트\n' >&2
   printf '      (특성·기획·계획·페르소나·로직·개념)를 만들어 두면 이후 모든 분석 품질이 올라간다.\n\n' >&2
 fi
+
+wants kimi && check_kimi_model_alias
 
 declare -a NAMES=() PIDS=()
 for ai in claude codex grok kimi; do

@@ -107,14 +107,14 @@ bash .claude/skills/cowork/scripts/cowork.sh <폴더명> "<분석 요청 프롬�
 - **모델은 항상 최신/최고 등급으로 고정된다**(2026-07-21 사용자 지시 — 낮추지 말 것):
   claude=`claude-opus-5`(Opus 5 고정)+`--effort xhigh` · codex=config 최신 모델+`model_reasoning_effort=xhigh`(config
   기본 low 를 강제 override) · grok=grok-4.5+`--reasoning-effort high`(xhigh 없음 → high 폴백, 실측)
-  · kimi=`kimi-code/k3` 명시 고정(K3 자체가 always_thinking 최고 모델, High/XHigh 별도 변형 없음).
+  · kimi=`kimi-code/k3-256k` 명시 고정 — K3 계열은 k3(1M)·k3-256k(256K) 두 가지인데 **반드시 256K 를 쓴다**(같은 K3 성능에 context quota 약 2배 절약, 2026-08-08 사용자 지시). K3 자체가 always_thinking 최고 모델이라 High/XHigh 별도 변형은 없다.
   claude 는 별칭 `opus`(=최신 opus 추종)가 아니라 전체 ID 로 5 를 못 박는다(2026-07-26 사용자 지시).
   기본값·근거는 `cowork.sh` 상단 "모델·추론 등급 정책" 블록이 SSOT.
 
 환경변수: `COWORK_TIMEOUT`(AI 당 제한 초, 기본 900) · `COWORK_ONLY`(일부만 재실행, 기본 claude,codex,grok,kimi)
 · `COWORK_CLAUDE_MODEL`/`COWORK_CLAUDE_EFFORT`(claude-opus-5/xhigh) · `COWORK_CODEX_MODEL`/`COWORK_CODEX_EFFORT`(config 상속/xhigh)
 · `COWORK_GROK_EFFORT`(high; xhigh 등 미지원 → high 폴백) · `COWORK_GROK_RETRIES`(빈응답 재시도, 기본 3)
-· `COWORK_KIMI_MODEL`(kimi-code/k3)
+· `COWORK_KIMI_MODEL`(kimi-code/k3-256k)
   — grok 는 headless 시 부모 Grok 세션과 leader 소켓 충돌로 `permission_cancelled`→빈응답(exit 99)이
   날 수 있어, 호출마다 고유 `--leader-socket`·`--always-approve`·`env -u GROK_AGENT`·재시도를 쓴다
   (2026-07-21 실측, `references/readonly-enforcement.md` §grok 빈 응답).
@@ -220,7 +220,7 @@ hook 을 기다리지 말고 **메인 오케스트레이터가 리뷰를 동기�
     ├── claude-cowork.md   ← claude 분석 (단일 pass)
     ├── codex-cowork.md    ← codex 분석 (단일 pass)
     ├── grok-cowork.md     ← grok 분석 (2-pass 최종, §7 자기 비판 포함)
-    ├── kimi-cowork.md     ← kimi 분석 (단일 pass, Kimi K3)
+    ├── kimi-cowork.md     ← kimi 분석 (단일 pass, Kimi K3 256K)
     ├── final-report.md    ← 최종 종합·결론 (오케스트레이터 작성 — 사람이 원하는 산출물)
     ├── final-report-log.md ← 리뷰 라운드 변경 이력 (hook 설치 시, append)
     ├── .grok-pass1.md     ← grok 1차 원본 (pass2 와 비교하면 무엇이 뒤집혔는지 보인다)
