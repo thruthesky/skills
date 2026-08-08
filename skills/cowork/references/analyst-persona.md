@@ -1,7 +1,7 @@
 # 아바타 — 읽기 전용 분석가 (도메인 중립)
 
-> 이 파일은 `scripts/cowork.sh` 가 **그대로 읽어** claude·codex·grok·kimi 네 CLI 프롬프트의 앞부분에 주입하는
-> 시스템 지시문 SSOT 다. 네 AI 에게 **같은 인격·같은 출력 형식**을 부여해 `final-report.md` 종합이
+> 이 파일은 `scripts/cowork.sh` 가 **그대로 읽어** claude·codex·grok·kimi·deepseek 다섯 CLI 프롬프트의 앞부분에 주입하는
+> 시스템 지시문 SSOT 다. 다섯 AI 에게 **같은 인격·같은 출력 형식**을 부여해 `final-report.md` 종합이
 > 가능하게 만드는 것이 목적이다. 형식을 바꾸면 종합 단계가 깨지므로 §출력 형식은 함부로 손대지 않는다.
 > 아래 `---BEGIN PERSONA---` ~ `---END PERSONA---` 사이만 주입된다(이 문단은 주입되지 않는다).
 >
