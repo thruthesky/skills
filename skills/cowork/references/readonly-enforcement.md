@@ -1,6 +1,6 @@
 # 읽기 전용 강제 — CLI 별 실측 결과 (회귀 방지 SSOT)
 
-cowork 의 핵심 안전장치는 **여덟 AI 가 작업공간의 어떤 파일도 물리적으로 수정할 수 없다**는 것이다
+cowork 의 핵심 안전장치는 **일곱 AI 가 작업공간의 어떤 파일도 물리적으로 수정할 수 없다**는 것이다
 (코드든 문서든 데이터든 동일하다).
 페르소나에 "수정하지 말라"고 적는 것은 *부탁* 이지 *보장* 이 아니다. 아래는 각 CLI 에서 무엇이 실제로
 작동하는지 **직접 공격해서 측정한** 결과다. `cowork.sh` 의 비대칭적인 방어 수단은 전부 이 표에서 나왔다.
@@ -27,8 +27,8 @@ cowork 의 핵심 안전장치는 **여덟 AI 가 작업공간의 어떤 파일�
 | **kimi** | `-p` 기본 (headless) | ❌ **뚫림** — 승인 게이트 없이 파일 생성됨 (`pwned.txt` 실측) | ❌ |
 | **kimi** | `--plan -p` 조합 | ⛔ **실행 불가** — `error: Cannot combine --prompt with --plan.` CLI 가 거절 | ❌ |
 | **kimi** | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — Write 도구 `EPERM` 실패, kimi 는 크래시 없이 실패 보고, 파일 미생성 | ✅ 채택 |
-| **OpenCode 4모델**(deepseek·glm·minimax·qwen) | `run` 기본 (headless) | ❌ **뚫림** — DeepSeek 실측에서 승인 없이 `pwned.txt` 생성됨 (2026-08-08); 같은 CLI 실행 경로의 나머지 모델도 안전하다고 가정하지 않음 | ❌ |
-| **OpenCode 4모델**(각 독립 프로세스) | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — write·bash 모두 `Operation not permitted`, 파일 미생성 | ✅ 채택 |
+| **OpenCode 3모델**(deepseek·minimax·qwen) | `run` 기본 (headless) | ❌ **뚫림** — DeepSeek 실측에서 승인 없이 `pwned.txt` 생성됨 (2026-08-08); 같은 CLI 실행 경로의 나머지 모델도 안전하다고 가정하지 않음 | ❌ |
+| **OpenCode 3모델**(각 독립 프로세스) | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — write·bash 모두 `Operation not permitted`, 파일 미생성 | ✅ 채택 |
 
 ### OpenCode 의 함정 — `< /dev/null` 이 없으면 영원히 멈춘다 (2026-08-08 실측, opencode 1.4.6)
 
@@ -44,7 +44,7 @@ opencode run -m "$MODEL" "$(cat "$PROMPT_FILE")" > "$out" 2> "$log" < /dev/null
 ```
 
 `< /dev/null` 을 붙이자 같은 호출이 **10초 만에** 정상 응답했다. `run_opencode_analysis()` 와
-`run_oneshot()` 의 OpenCode 네 모델 분기 양쪽에 걸려 있다.
+`run_oneshot()` 의 OpenCode 세 모델 분기 양쪽에 걸려 있다.
 
 ### kimi 가 뚫린 이유 (2026-07-18 실측, kimi-code 0.27.0)
 
@@ -142,7 +142,7 @@ sandbox-exec -p '...같은 프로파일...' \
 
 ## 그 밖의 강제 장치
 
-- **AI 는 산출물 파일을 쓰지 않는다.** 여덟 AI 모두 stdout 으로만 분석을 내고, `.cowork/<slug>/*.md` 기록은
+- **AI 는 산출물 파일을 쓰지 않는다.** 일곱 AI 모두 stdout 으로만 분석을 내고, `.cowork/<slug>/*.md` 기록은
   `cowork.sh`(부모 프로세스)가 한다. 그래서 grok·kimi 가 repo 쓰기를 못 해도 `.cowork/` 산출물은 정상 생성된다.
 - **codex 는 중첩 샌드박스를 쓰지 않는다.** 자체 seatbelt 샌드박스가 이미 검증됐고, `sandbox-exec` 로
   또 감싸면 충돌 위험만 생긴다.
