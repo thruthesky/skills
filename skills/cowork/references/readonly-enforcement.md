@@ -1,6 +1,6 @@
 # 읽기 전용 강제 — CLI 별 실측 결과 (회귀 방지 SSOT)
 
-cowork 의 핵심 안전장치는 **여덟 AI 가 작업공간의 어떤 파일도 물리적으로 수정할 수 없다**는 것이다
+cowork 의 핵심 안전장치는 **여섯 AI 가 작업공간의 어떤 파일도 물리적으로 수정할 수 없다**는 것이다
 (코드든 문서든 데이터든 동일하다).
 페르소나에 "수정하지 말라"고 적는 것은 *부탁* 이지 *보장* 이 아니다. 아래는 각 CLI 에서 무엇이 실제로
 작동하는지 **직접 공격해서 측정한** 결과다. `cowork.sh` 의 비대칭적인 방어 수단은 전부 이 표에서 나왔다.
@@ -29,8 +29,8 @@ cowork 의 핵심 안전장치는 **여덟 AI 가 작업공간의 어떤 파일�
 | **kimi** | `-p` 기본 (headless) | ❌ **뚫림** — 승인 게이트 없이 파일 생성됨 (`pwned.txt` 실측) | ❌ |
 | **kimi** | `--plan -p` 조합 | ⛔ **실행 불가** — `error: Cannot combine --prompt with --plan.` CLI 가 거절 | ❌ |
 | **kimi** | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — Write 도구 `EPERM` 실패, kimi 는 크래시 없이 실패 보고, 파일 미생성 | ✅ 채택 |
-| **OpenCode 3모델**(deepseek·minimax·qwen) | `run` 기본 (headless) | ❌ **뚫림** — DeepSeek 실측에서 승인 없이 `pwned.txt` 생성됨 (2026-08-08); 같은 CLI 실행 경로의 나머지 모델도 안전하다고 가정하지 않음 | ❌ |
-| **OpenCode 3모델**(각 독립 프로세스) | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — write·bash 모두 `Operation not permitted`, 파일 미생성 | ✅ 채택 |
+| **OpenCode**(현재 glm) | `run` 기본 (headless) | ❌ **뚫림** — 승인 없이 `pwned.txt` 생성됨 (2026-08-08, 당시 모델 DeepSeek). 방어는 **CLI 실행 경로** 에 걸리므로 모델을 바꿔도 결론은 같다 — 어떤 모델도 안전하다고 가정하지 않는다 | ❌ |
+| **OpenCode**(독립 프로세스) | `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — write·bash 모두 `Operation not permitted`, 파일 미생성 | ✅ 채택 |
 | **agy** | `-p` 기본 (권한 플래그 없음) | ⛔ **분석 불가** — 도구가 전부 auto-deny 되어 stdout 0B 빈 응답. 차단이 아니라 *아무것도 못 함* | ❌ |
 | **agy** | `--dangerously-skip-permissions` + `sandbox-exec` + `(deny file-write* (subpath "<repo>"))` | ✅ **차단** — 모델은 `OK`(만들었다)고 **거짓 보고**했으나 파일 미생성 | ✅ 채택 |
 
@@ -94,7 +94,48 @@ opencode run -m "$MODEL" "$(cat "$PROMPT_FILE")" > "$out" 2> "$log" < /dev/null
 ```
 
 `< /dev/null` 을 붙이자 같은 호출이 **10초 만에** 정상 응답했다. `run_opencode_analysis()` 와
-`run_oneshot()` 의 OpenCode 세 모델 분기 양쪽에 걸려 있다.
+`run_oneshot()` 의 OpenCode(glm) 분기 양쪽에 걸려 있다.
+
+### 고아 프로세스 누수 — 워치독은 **프로세스 그룹**을 죽여야 한다 (2026-08-17 실측 사고)
+
+읽기 전용과는 별개지만 역시 **같은 실행 지점**의 문제다. 방치하면 분석이 느려지는 형태로 나타나
+"모델이 느리다" 로 오진하기 쉬우므로 여기 남긴다.
+
+`run_timeout()` 의 perl 워치독이 **직접 자식에게만** TERM/KILL 을 보내고 있었다. 우리가 실제로 부르는
+것은 `sandbox-exec` → CLI(node) → 그 CLI 가 띄운 자식들이라, 중간만 죽으면 나머지가 부모 없이 살아남는다.
+
+측정된 피해:
+
+| 항목 | 값 |
+|---|---|
+| 살아남은 `opencode` 프로세스 | **84개** |
+| 최고 생존 시간 | **4일 이상** |
+| 점유 메모리(RSS 합계) | **36.3 GB** |
+| 모델별 | qwen 36 · deepseek 33 · minimax 13 |
+| 곁다리 고아 | `bash-language-server` 4개(약 6시간) — opencode 가 띄운 LSP |
+
+정상 종료(exit 0)한 실행도 자식을 남겼다(위 LSP). 즉 **타임아웃 경로만 고쳐서는 부족하다.**
+
+채택한 방어 — 자식을 새 프로세스 그룹의 리더로 만들고, 그룹 전체에 시그널을 보낸다:
+
+```perl
+my $pid = fork();
+if ($pid == 0) { setpgrp(0, 0); exec @ARGV or exit 127 }   # ① 자식 = 새 그룹 리더 → 손자도 같은 그룹
+my $reap = sub { kill "TERM", -$pid; select(undef,undef,undef,$_[0]); kill "KILL", -$pid };
+local $SIG{ALRM} = sub { $reap->(2); exit 124 };           # ② 타임아웃 → 그룹 전체
+alarm $s; waitpid($pid, 0); my $rc = $? >> 8; alarm 0;
+$reap->(0.3);                                              # ③ 정상 종료 뒤에도 한 번 더
+exit($rc);
+```
+
+- `-$pid` 는 **PGID 가 자식 PID 인 그룹**만 가리킨다. 부모(perl)의 PGID 는 셸의 것이라 그 그룹에
+  속하지 않으므로 자기 자신을 죽일 위험이 없다. `setpgrp` 이 실패하면 그런 그룹이 없어 kill 이
+  조용히 실패할 뿐, 엉뚱한 프로세스를 죽이지 않는다.
+- 이 워치독은 **모든 CLI 가 공용**한다(claude·codex·grok·kimi·agy·opencode). 누수는 opencode 에서
+  가장 크게 드러났을 뿐 구조는 공통이었다.
+
+검증(2026-08-17): 타임아웃 케이스·정상 종료 케이스 모두 손자 프로세스 0개로 정리됨을 확인했고,
+종료 코드(0/42/124)·stdout·stdin 파이프가 모두 보존됨을 회귀 테스트로 확인했다.
 
 ### kimi 가 뚫린 이유 (2026-07-18 실측, kimi-code 0.27.0)
 
@@ -203,7 +244,7 @@ agy 는 성공했다고 오보한다 — 이 문서 §판정 원칙("모델의 �
 (만들려 하면 분석 능력까지 0이 된다), `sandbox-exec` 가 유일한 방어다. 그래서 샌드박스가 없는
 환경에서는 **아예 실행하지 않는다**(`run_agy()` 의 fail-safe).
 
-부수 실측 — 정상 경로에서 이 조합은 온전히 동작한다: 8 AI 통합 검증 실행에서 agy 는 103초에 11.1KB,
+부수 실측 — 정상 경로에서 이 조합은 온전히 동작한다: 6 AI 통합 검증 실행에서 agy 는 103초에 11.1KB,
 요구 형식 헤더(§1~§6) 전부 충족, stderr 0B, 작업공간 무오염이었다.
 
 ## 재현 절차 (방어를 바꾸기 전에 반드시 실행)
@@ -231,7 +272,7 @@ sandbox-exec -p '...같은 프로파일...' \
 
 ## 그 밖의 강제 장치
 
-- **AI 는 산출물 파일을 쓰지 않는다.** 여덟 AI 모두 stdout 으로만 분석을 내고, `.cowork/<slug>/*.md` 기록은
+- **AI 는 산출물 파일을 쓰지 않는다.** 여섯 AI 모두 stdout 으로만 분석을 내고, `.cowork/<slug>/*.md` 기록은
   `cowork.sh`(부모 프로세스)가 한다. 그래서 grok·kimi 가 repo 쓰기를 못 해도 `.cowork/` 산출물은 정상 생성된다.
 - **codex 는 중첩 샌드박스를 쓰지 않는다.** 자체 seatbelt 샌드박스가 이미 검증됐고, `sandbox-exec` 로
   또 감싸면 충돌 위험만 생긴다.

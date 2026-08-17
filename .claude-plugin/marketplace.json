@@ -68,8 +68,8 @@
     {
       "name": "cowork",
       "source": "./skills/cowork",
-      "description": "🛑 사용자가 \"cowork\"(또는 \"/cowork\"·\"코워크\") 라고 직접 지목해 호출할 때만 동작한다(일반적인 \"분석해줘\"·\"조사해줘\" 요청으로 자동 발동하지 않는다). 🧰 AgentTool(서브에이전트)·Workflow 를 쓰지 않고 Bash 로 각 AI 의 독립 CLI 를 띄운다. 분야를 가리지 않는 8 AI 교차 분석 스킬. 하나의 질문을 claude·codex·grok·kimi, Antigravity CLI 의 Gemini 3.7 Flash High(agy), OpenCode 의 DeepSeek V4 Pro·MiniMax M3·Qwen 3.6 Plus, 총 여덟 AI 에게 동시에 읽기 전용 분석가로 던져 교차검증하고 하나의 결론(final-report.md)으로 종합한 뒤 보고·실행한다. 코드베이스뿐 아니라 기획·교재·문제 풀이·레시피 등 모든 작업공간에서 동작하며, 프로젝트별 시스템 프롬프트(.cowork/cowork-prompt.md)를 /cowork:init 으로 만들어 모든 분석에 주입한다.",
-      "version": "2.7.0"
+      "description": "🛑 사용자가 \"cowork\"(또는 \"/cowork\"·\"코워크\") 라고 직접 지목해 호출할 때만 동작한다(일반적인 \"분석해줘\"·\"조사해줘\" 요청으로 자동 발동하지 않는다). 🧰 AgentTool(서브에이전트)·Workflow 를 쓰지 않고 Bash 로 각 AI 의 독립 CLI 를 띄운다. 분야를 가리지 않는 6 AI 교차 분석 스킬. 하나의 질문을 claude·codex·grok·kimi, Antigravity CLI 의 Gemini 3.7 Flash High(agy), OpenCode 의 GLM-5.3(glm), 총 여섯 AI 에게 동시에 읽기 전용 분석가로 던져 교차검증하고 하나의 결론(final-report.md)으로 종합한 뒤 보고·실행한다. 코드베이스뿐 아니라 기획·교재·문제 풀이·레시피 등 모든 작업공간에서 동작하며, 프로젝트별 시스템 프롬프트(.cowork/cowork-prompt.md)를 /cowork:init 으로 만들어 모든 분석에 주입한다.",
+      "version": "2.8.0"
     }
   ]
 }

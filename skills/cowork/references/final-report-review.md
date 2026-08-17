@@ -2,13 +2,13 @@
 
 ## 핵심 개념 — 왜 리뷰 라운드가 필요한가
 
-기본 cowork 는 **8 AI 분석 → 오케스트레이터가 `final-report.md` 종합** 까지다. 그런데 종합은 사람(또는
+기본 cowork 는 **6 AI 분석 → 오케스트레이터가 `final-report.md` 종합** 까지다. 그런데 종합은 사람(또는
 메인 Claude) *한 명* 이 한 번에 쓴 것이라, 종합 과정에서 생긴 **과장·누락·검증 안 된 채 실린 주장** 이
-그대로 남을 수 있다. 리뷰 라운드는 그 `final-report.md` 를 **8 AI 에게 다시 던져** 종합본 자체를
+그대로 남을 수 있다. 리뷰 라운드는 그 `final-report.md` 를 **6 AI 에게 다시 던져** 종합본 자체를
 비판하게 하고, 그 지적을 종합 AI 가 반영해 `final-report.md` 를 **한 번 더** 다듬는 단계다.
 
 - **분석 라운드**(1차): 각 AI 가 *작업공간 자료* 를 읽고 분석 → `<ai>-cowork.md`
-- **리뷰 라운드**(2차, 이 문서): 각 AI 가 *종합본 `final-report.md` + 8개 원본 분석* 을 읽고 종합본을
+- **리뷰 라운드**(2차, 이 문서): 각 AI 가 *종합본 `final-report.md` + 6개 원본 분석* 을 읽고 종합본을
   비판 → `.review/<ai>-review.md` → 종합 AI 가 반영 → `final-report.md` 갱신 + `final-report-log.md` 기록
 
 리뷰 라운드는 **선택 기능** 이다. `cowork.sh --init-hook` 으로 Stop hook 을 설치한 프로젝트에서만,
@@ -20,7 +20,7 @@
 ```
 ① cowork.sh <name> "..."  실행 시작
      └─ 작업폴더 생성 직후  .cowork/<name>/.review-final-report  마커 생성
-② 8 AI 분석 완료 → 메인 Claude 가 final-report.md 종합 작성 → 사용자 보고 → 턴 종료
+② 6 AI 분석 완료 → 메인 Claude 가 final-report.md 종합 작성 → 사용자 보고 → 턴 종료
 ③ [Stop hook] final-report-stop-hook.sh 발동
      ├─ stop_hook_active=true 면 즉시 exit 0 (무한 루프 방지)
      ├─ .cowork/*/ 순회: .review-final-report 있고 final-report.md 있고 .review-running 없는 폴더
@@ -29,7 +29,7 @@
      ├─ .review-running 락 생성(mkdir 원자성, 중복 방지) + trap 정리
      ├─ final-report.md 없으면 락 해제 후 종료(.review-final-report 유지 — 다음 기회에)
      ├─ 원본 백업: final-report.md → .review/final-report.before.md
-     ├─ 최대 8 AI 리뷰(병렬, 1-pass): 리뷰 페르소나 + final-report.md 전문 + 8개 cowork.md 전문
+     ├─ 최대 6 AI 리뷰(병렬, 1-pass): 리뷰 페르소나 + final-report.md 전문 + 6개 cowork.md 전문
      │        → 각 stdout → .review/<ai>-review.md
      ├─ 종합 AI(claude, 1회): 원본 + 성공한 리뷰들 → 개선된 final-report.md 전문 + 변경요약(구분자 분리)
      ├─ 검증: FINAL-REPORT 블록이 유효(§1 결론 포함·최소 크기)하면 교체, 아니면 원본 유지(안전)
@@ -44,17 +44,17 @@
 **왜 grok 도 리뷰는 1-pass 인가**: 리뷰 입력은 *이미 종합된 결론* 이라 grok 의 2-pass(탐색→자기비판)
 가 겨냥하는 "1차 탐색의 얕음" 문제가 없다. 리뷰 자체가 비판 작업이므로 1-pass 로 충분하다.
 
-## 리뷰 페르소나 (cowork.sh 가 REVIEW-PERSONA 마커를 읽어 8 AI 에 주입)
+## 리뷰 페르소나 (cowork.sh 가 REVIEW-PERSONA 마커를 읽어 6 AI 에 주입)
 
 분석 페르소나(`analyst-persona.md`)와 달리, 리뷰어는 *작업공간 자료가 아니라 종합본* 을 1차 대상으로
-본다. 읽기 전용 강제는 동일하다(8 AI 는 여전히 파일을 못 쓴다).
+본다. 읽기 전용 강제는 동일하다(6 AI 는 여전히 파일을 못 쓴다).
 리뷰 프롬프트에도 이 작업공간의 시스템 프롬프트(`.cowork/cowork-prompt.md`)가 함께 실린다 — 권고의 실현성은
 그 제약 위에서 판정해야 하기 때문이다.
 
 ---BEGIN REVIEW-PERSONA---
 
 당신은 **이미 작성된 종합 보고서 `final-report.md` 를 최종 검토하는 시니어 리뷰어** 다. 이 보고서는
-claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 오케스트레이터가 하나로 종합한 것이고, 당신의 임무는
+claude·codex·grok·kimi·glm·agy 여섯 AI 의 분석을 오케스트레이터가 하나로 종합한 것이고, 당신의 임무는
 그 **종합본 자체의 결함을 찾아내는 것** 이다.
 
 프롬프트에 이 작업공간의 시스템 프롬프트(`.cowork/cowork-prompt.md`)가 실려 있으면 **그것이 최우선 전제** 다.
@@ -71,7 +71,7 @@ claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 
 ## 검토 대상 (프롬프트에 함께 실려 온다)
 
 - **`final-report.md` 전문** — 검토할 종합본(1차 대상)
-- **8개 원본 분석**(`claude/codex/grok/kimi/deepseek/minimax/qwen/agy-cowork.md`) — 종합의 재료. 종합본이 이것들을 정확히·공정히
+- **6개 원본 분석**(`claude/codex/grok/kimi/glm/agy-cowork.md`) — 종합의 재료. 종합본이 이것들을 정확히·공정히
   반영했는지 대조하라. 필요하면 `.cowork/<name>/` 의 파일과 작업공간의 실제 자료도 열어 확인하라.
 
 ## 무엇을 지적하는가
@@ -119,13 +119,13 @@ claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 
 
 ## 종합 프롬프트 (cowork.sh 가 REVIEW-SYNTHESIS 마커를 읽어 claude 1회에 주입)
 
-최대 8개 리뷰를 받아 `final-report.md` 를 개선하는 종합 AI(claude)에게 주입한다. claude 도 읽기 전용이라
+최대 6개 리뷰를 받아 `final-report.md` 를 개선하는 종합 AI(claude)에게 주입한다. claude 도 읽기 전용이라
 파일을 못 쓰므로, **개선된 전문을 stdout 으로** 내고 스크립트가 파일에 기록한다.
 
 ---BEGIN REVIEW-SYNTHESIS---
 
 당신은 종합 보고서 `final-report.md` 의 **최종 편집자** 다. 아래에 원본 `final-report.md` 전문과, 그것을
-여덟 AI 가 검토한 리뷰 중 생성에 성공한 것들이 실려 있다. 리뷰의 지적을 반영해 `final-report.md` 를 **한 단계 더 정확하게**
+여섯 AI 가 검토한 리뷰 중 생성에 성공한 것들이 실려 있다. 리뷰의 지적을 반영해 `final-report.md` 를 **한 단계 더 정확하게**
 다듬어라.
 
 ## 편집 원칙
@@ -172,9 +172,7 @@ claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 
     ├── codex-review.md          ← codex 리뷰 의견
     ├── grok-review.md           ← grok 리뷰 의견
     ├── kimi-review.md           ← kimi 리뷰 의견
-    ├── deepseek-review.md       ← deepseek 리뷰 의견
-    ├── minimax-review.md         ← MiniMax 리뷰 의견
-    ├── qwen-review.md           ← Qwen 리뷰 의견
+    ├── glm-review.md            ← GLM-5.3 리뷰 의견
     ├── agy-review.md            ← Gemini 3.7 Flash High(Antigravity) 리뷰 의견
     └── synthesis.md             ← 종합 AI 원출력(FINAL-REPORT+CHANGELOG 블록, 파싱 전)
 ```
@@ -184,7 +182,7 @@ claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 
 ```markdown
 ## 리뷰 라운드 — <YYYY-MM-DD HH:MM>
 
-> 8 AI 리뷰(claude·codex·grok·kimi·deepseek·minimax·qwen·agy) → claude 종합 → final-report.md 갱신
+> 6 AI 리뷰(claude·codex·grok·kimi·glm·agy) → claude 종합 → final-report.md 갱신
 
 <종합 AI 가 낸 CHANGELOG 전문>
 
@@ -195,7 +193,7 @@ claude·codex·grok·kimi·deepseek·minimax·qwen·agy 여덟 AI 의 분석을 
 
 ## 자주 틀리는 지점
 
-- **리뷰가 final-report.md 를 직접 쓰게 하는 것** — 8 AI 는 읽기 전용이다. 리뷰는 의견만 stdout 으로
+- **리뷰가 final-report.md 를 직접 쓰게 하는 것** — 6 AI 는 읽기 전용이다. 리뷰는 의견만 stdout 으로
   내고, 갱신은 종합 AI 출력을 스크립트가 파일에 기록한다.
 - **종합 AI 출력을 검증 없이 저장** — `===FINAL-REPORT===` 블록이 비었거나 `## 1. 결론` 이 없으면
   원본을 유지한다(리뷰가 보고서를 망가뜨리지 않게).
