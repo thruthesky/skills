@@ -1,7 +1,7 @@
 {
   "name": "cowork",
-  "version": "2.8.0",
-  "description": "🛑 사용자가 \"cowork\"(또는 \"/cowork\"·\"코워크\") 라고 직접 지목해 호출할 때만 동작한다(일반적인 \"분석해줘\"·\"조사해줘\" 요청으로 자동 발동하지 않는다). 🧰 AgentTool(서브에이전트)·Workflow 를 쓰지 않고 Bash 로 각 AI 의 독립 CLI 를 띄운다. 분야를 가리지 않는 6 AI 교차 분석 스킬. 하나의 질문을 claude·codex·grok·kimi, Antigravity CLI의 Gemini 3.7 Flash High(agy), OpenCode의 GLM-5.3(glm)에 동시에 던지며, OpenCode 는 GLM-5.3 하나만 독립된 CLI 프로세스로 실행한다. 오케스트레이터가 작업공간 근거를 직접 열어 교차검증해 하나의 결론(final-report.md)으로 종합한 뒤 보고하고, 요청에 실행이 포함돼 있으면 즉시 실행한다. 소프트웨어 코드베이스뿐 아니라 기획·교재·문제 풀이·레시피·사업 계획 등 모든 작업공간에서 동작하며, 프로젝트의 특성·기획·계획·아바타(persona)·디자인·로직·개념은 /cowork:init 으로 만드는 시스템 프롬프트 .cowork/cowork-prompt.md 에 정의해 모든 분석에 주입한다.",
+  "version": "2.9.0",
+  "description": "🛑 사용자가 \"cowork\"(또는 \"/cowork\"·\"코워크\") 라고 직접 지목해 호출할 때만 동작한다(일반적인 \"분석해줘\"·\"조사해줘\" 요청으로 자동 발동하지 않는다). 🧰 AgentTool(서브에이전트)·Workflow 를 쓰지 않고 Bash 로 각 AI 의 독립 CLI 를 띄운다. 분야를 가리지 않는 5 AI 교차 분석 스킬. 하나의 질문을 claude·codex·grok·kimi와 Antigravity CLI의 Gemini 3.7 Flash High(agy)에 동시에 던지며, 각 AI 를 독립된 CLI 프로세스로 병렬 실행한다. 오케스트레이터가 작업공간 근거를 직접 열어 교차검증해 하나의 결론(final-report.md)으로 종합한 뒤 보고하고, 요청에 실행이 포함돼 있으면 즉시 실행한다. 소프트웨어 코드베이스뿐 아니라 기획·교재·문제 풀이·레시피·사업 계획 등 모든 작업공간에서 동작하며, 프로젝트의 특성·기획·계획·아바타(persona)·디자인·로직·개념은 /cowork:init 으로 만드는 시스템 프롬프트 .cowork/cowork-prompt.md 에 정의해 모든 분석에 주입한다.",
   "author": {
     "name": "JaeHo Song"
   },

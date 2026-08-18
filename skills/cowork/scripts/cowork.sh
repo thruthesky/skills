@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-# cowork.sh — claude·codex·grok·kimi·agy + OpenCode(GLM)를 읽기 전용 분석가로 병렬 실행한다.
+# cowork.sh — claude·codex·grok·kimi·agy 다섯 CLI 를 읽기 전용 분석가로 병렬 실행한다.
 #
 #   사용: bash .claude/skills/cowork/scripts/cowork.sh <slug> <분석 요청 프롬프트>
-#   결과: .cowork/<slug>/{claude,codex,grok,kimi,glm,agy}-cowork.md
+#   결과: .cowork/<slug>/{claude,codex,grok,kimi,agy}-cowork.md
 #
 # 이 스크립트는 **분야를 가리지 않는다.** 작업공간이 소프트웨어 저장소든, 교재·문제은행·레시피·기획서
 # 폴더든 동일하게 동작한다. 작업공간의 성격은 `.cowork/cowork-prompt.md`(사람이 쓴 지침) + 실행 시점 자동
 # 감지로 주입한다 — 특정 분야를 이 스크립트나 페르소나에 하드코딩하지 말 것.
 #
 # 설계 요지
-#   - 여섯 AI 는 읽기 전용으로 강제된다. AI 자신은 작업공간 파일을 쓸 수 없고, 분석은 stdout 으로만
+#   - 다섯 AI 는 읽기 전용으로 강제된다. AI 자신은 작업공간 파일을 쓸 수 없고, 분석은 stdout 으로만
 #     낸다. 파일 기록은 이 스크립트가 한다.
 #     → "절대 수정 금지" 를 프롬프트(부탁)가 아니라 도구/OS 권한(강제)으로 보장한다.
 #   - ⚠️ 방어 수단이 CLI 마다 다른 이유는 실측 결과가 다르기 때문이다. 근거와 재현 절차는
 #     references/readonly-enforcement.md 참고. 임의로 통일하지 말 것(특히 grok·kimi).
-#   - 여섯 AI 는 동시에 돌린다(가장 느린 하나의 시간만 걸린다). OpenCode 는 `glm` 하나만 독립
-#     `opencode run` 프로세스로 실행한다(2026-08-17 사용자 지시).
+#   - 다섯 AI 는 동시에 돌린다(가장 느린 하나의 시간만 걸린다).
 #   - 하나가 실패해도 나머지는 계속 간다. 실패는 마지막 STATUS 요약에 남는다.
 #   - macOS 에는 timeout(1) 이 없으므로 perl alarm 워치독을 쓴다.
 set -uo pipefail
@@ -35,14 +34,14 @@ REPO_ROOT_PHYS="$(cd "$REPO_ROOT" && pwd -P)"
 # 분석 1건당 제한 시간(초). 깊은 분석은 오래 걸리므로 넉넉히.
 COWORK_TIMEOUT="${COWORK_TIMEOUT:-900}"
 # 특정 AI 만 (재)실행. 쉼표로 여러 개를 지정한다(실패한 AI 재시도용).
-# OpenCode 분석 이름은 glm 하나다. agy 는 Antigravity CLI(Gemini 계열)로 OpenCode 경로가 아니다.
+# agy 는 Antigravity CLI(Gemini 계열)다.
 #
-# 🛑 2026-08-17 사용자 지시: **OpenCode 로는 GLM-5.3 하나만 쓴다.** 그전까지 쓰던
-#    deepseek(v4-pro)·minimax(m3)·qwen(3.6-plus) 세 모델은 여기서 제거했다. 되돌리려면 이 배열과
-#    opencode_model_for()·run_glm()·문서의 산출물 트리를 함께 고쳐야 한다(한 곳만 고치면 어긋난다).
-COWORK_AI_NAMES=(claude codex grok kimi glm agy)
-COWORK_OPENCODE_NAMES=(glm)
-COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi,glm,agy}"
+# 🛑 2026-08-17 사용자 지시: **OpenCode 를 통째로 뺐다.** 그전까지 OpenCode Go 구독으로 부르던
+#    deepseek·minimax·qwen(→ 이후 glm-5.3 하나로 축소)이 여기서 사라졌다. 되살리려면 이 배열,
+#    run_<이름> 래퍼, run_oneshot 의 분기, 키 파일 탐색·점검, 문서의 산출물 트리를 함께 되돌려야
+#    한다. 이력·실측 근거: references/readonly-enforcement.md §OpenCode(제거됨).
+COWORK_AI_NAMES=(claude codex grok kimi agy)
+COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi,agy}"
 
 # --- 모델·추론 등급 정책 (2026-07-21 사용자 지시: 반드시 최신/최고 모델의 최고 등급) ---------
 # 각 CLI 의 기본값에 맡기지 않고 최고 등급을 명시 고정한다. 근거(실측 2026-07-21):
@@ -99,39 +98,6 @@ COWORK_KIMI_MODEL="${COWORK_KIMI_MODEL:-kimi-code/k3-256k}"
 # 환경변수로 조용히 k3(1M)로 되돌아가 context quota 를 두 배로 태우는 사고를 막는다.
 COWORK_KIMI_MODEL_REQUIRED="kimi-code/k3-256k"
 COWORK_KIMI_CONTEXT_REQUIRED="262144"
-#   - OpenCode: **GLM-5.3 하나만** 독립 `opencode run` 프로세스로 부른다(2026-08-17 사용자 지시).
-#               구독 카탈로그에 glm-5.1·5.2·5.3 이 있고 그중 5.3 이 최신이다(실측 조회 확인).
-#               🛑 프로바이더 접두어가 둘이니 주의 — `opencode-go/`(정액 구독)와
-#               `opencode/`(Zen 종량제)는 다른 경로다. 반드시 opencode-go 를 쓴다. 접두어를 틀리면
-#               "모델이 구독에 없다"로 그 AI 만 조용히 죽는다(2026-08-10 gemini 사고).
-#               COWORK_OPENCODE_MODEL 은 예전 단일 설정의 하위 호환 별칭으로 계속 받는다.
-#               ⚠️ glm 은 예전 감사에서 413s 로 다른 OpenCode 모델의 3배 이상 느렸다(당시 glm-5.2).
-#               OpenCode 가 하나뿐인 지금은 그것이 곧 OpenCode 몫의 대기 시간이다.
-COWORK_OPENCODE_GLM_MODEL="${COWORK_OPENCODE_GLM_MODEL:-${COWORK_OPENCODE_MODEL:-opencode-go/glm-5.3}}"
-# opencode 인증 키 파일. 이 파일 내용을 OPENCODE_API_KEY 로 주입한다(키를 인자로 넘기면 ps 에 노출).
-#
-# 탐색 순서(둘 다 정식 경로다 — 먼저 **실재하는** 쪽을 쓴다. 2026-08-10 사용자 지시):
-#   1. <작업공간>/.cowork/opencode-go-api.key       — 작업공간 로컬(프로젝트마다 다른 키를 쓸 때)
-#   2. ~/.config/cowork/opencode-go-api.key         — 사용자 공용(여러 작업공간이 한 키를 공유)
-#      (XDG_CONFIG_HOME 이 설정돼 있으면 그 아래 cowork/opencode-go-api.key)
-# COWORK_OPENCODE_KEYFILE 을 직접 지정하면 탐색을 건너뛰고 그 경로만 쓴다.
-# 둘 다 없으면 2번 경로를 남겨 오류 안내가 권장 위치를 가리키게 한다.
-#
-# 🛑 1번은 **분석 대상 폴더 안**이다. sandbox-exec 는 *쓰기만* 막고 읽기는 허용하므로 여섯 AI 가
-#    전부 키를 읽어 분석 출력에 흘릴 수 있다(2026-08-08 감사 실측: deepseek 이 .cowork/ 를 나열하다
-#    키 파일의 경로·권한을 발견했다). .gitignore 는 커밋만 막을 뿐 읽기 방어가 아니다.
-#    그래서 1번을 쓰면 check_opencode_key() 가 매번 경고한다 — 노출이 곤란하면 2번에 둬라.
-COWORK_OPENCODE_KEYFILE="${COWORK_OPENCODE_KEYFILE:-}"
-if [ -z "$COWORK_OPENCODE_KEYFILE" ]; then
-  for _cowork_kf in \
-    "$REPO_ROOT/.cowork/opencode-go-api.key" \
-    "${XDG_CONFIG_HOME:-$HOME/.config}/cowork/opencode-go-api.key"
-  do
-    COWORK_OPENCODE_KEYFILE="$_cowork_kf"
-    [ -f "$_cowork_kf" ] && break
-  done
-  unset _cowork_kf
-fi
 
 # --- agy (Antigravity CLI) ---------------------------------------------------
 # 모델 ID 는 `agy models` 목록의 것을 그대로 쓴다(프로바이더 접두어가 없는 평문 ID).
@@ -168,75 +134,8 @@ check_agy_model() {
 
 # kimi 는 `-m` 에 config.toml 의 **별칭** 을 받는다. 등록돼 있지 않으면 API 에 닿기도 전에
 # `config.invalid: Model "..." is not configured` 로 즉시 거절당한다(2026-08-08 실측).
-# 여섯 AI 중 하나가 통째로 빠진 채 분석이 끝나는 사고를 막으려고 실행 전에 점검해 안내한다.
+# 다섯 AI 중 하나가 통째로 빠진 채 분석이 끝나는 사고를 막으려고 실행 전에 점검해 안내한다.
 # (안내만 하고 진행한다 — 사용자의 개인 설정 파일을 스크립트가 임의로 고치지 않는다.)
-# opencode 키 파일을 실행 전에 점검한다(2026-08-08 감사 권고 1순위).
-# 반환 0 = 쓸 수 있는 키, 1 = 없음. 위험한 배치·권한은 경고만 하고 진행한다(사람이 판단할 몫).
-check_opencode_key() {
-  local kf="$COWORK_OPENCODE_KEYFILE"
-  if [ ! -f "$kf" ]; then return 1; fi
-  # 공백만 든 파일은 `-s` 를 통과하지만 빈 키로 실행돼 401 이 난다(실측). 정규화 후 판정한다.
-  [ -n "$(tr -d '[:space:]' < "$kf" 2> /dev/null)" ] || {
-    printf '⚠️  opencode 키 파일이 사실상 비어 있다(공백뿐): %s\n' "$kf" >&2
-    return 1
-  }
-  # 작업공간 안에 있으면 여섯 AI 가 전부 읽을 수 있다 — 샌드박스는 쓰기만 막는다.
-  # 🛑 상대 경로로 넘어오면 문자열 비교가 빗나가므로 절대 경로로 정규화한 뒤 판정한다
-  #    (2026-08-08: 상대 경로 테스트에서 경고가 통째로 누락된 것을 실측하고 고쳤다).
-  local kf_abs; kf_abs="$(cd "$(dirname "$kf")" 2> /dev/null && pwd -P)/$(basename "$kf")"
-  case "$kf_abs" in
-    "$REPO_ROOT_PHYS"/*)
-      # 이 배치도 정식으로 지원한다(그대로 진행한다). 다만 위험을 모르고 두는 일이 없게 매번 알린다.
-      printf '⚠️  opencode 키가 분석 대상 작업공간 안에 있다: %s\n' "${kf#$REPO_ROOT/}" >&2
-      printf '    여섯 AI 가 이 파일을 읽어 분석 출력에 흘릴 수 있다(샌드박스는 쓰기만 막는다).\n' >&2
-      printf '    노출이 곤란하면 작업공간 밖으로 옮겨라(그쪽도 자동으로 찾는다):\n' >&2
-      printf '      mkdir -p ~/.config/cowork && mv %s ~/.config/cowork/opencode-go-api.key && chmod 600 ~/.config/cowork/opencode-go-api.key\n' "$kf" >&2
-      # 작업공간 안 배치를 정식으로 지원하는 이상 커밋 사고도 같이 막아야 한다.
-      # git 이 이 파일을 무시하지 않으면 `git add .` 한 번에 키가 그대로 이력에 박힌다.
-      if git -C "$REPO_ROOT" rev-parse --git-dir > /dev/null 2>&1 \
-         && ! git -C "$REPO_ROOT" check-ignore -q "$kf_abs" 2> /dev/null; then
-        printf '    🛑 이 키는 .gitignore 에 걸려 있지 않다 — 커밋되면 이력에 그대로 남는다:\n' >&2
-        printf '       echo ".cowork/opencode-go-api.key" >> %s/.gitignore\n' "$REPO_ROOT" >&2
-      fi
-      ;;
-  esac
-  # 0600 이 아니면 같은 머신의 다른 사용자가 읽을 수 있다.
-  local mode; mode="$(stat -f '%Lp' "$kf" 2> /dev/null || stat -c '%a' "$kf" 2> /dev/null)"
-  case "$mode" in
-    600|400) ;;
-    *) printf '⚠️  opencode 키 파일 권한이 %s 다 — `chmod 600 %s` 를 권한다.\n' "${mode:-불명}" "$kf" >&2 ;;
-  esac
-  return 0
-}
-
-# OpenCode 모델 ID 가 **실제로 구독에 존재하는지** 실행 전에 확인한다.
-#
-# 🛑 2026-08-10 실측 사고: `opencode-go/gemini-3.6-flash` 를 기본값으로 박아 뒀는데 OpenCode Go
-#    구독에 gemini 계열이 아예 없어(16개 모델 중 0개) **매 실행마다 그 하나만 3초 만에 조용히 죽었다.**
-#    문서와 코드가 같은 잘못된 ID 를 공유했기 때문에 "문서·코드 일치" 검사로는 잡히지 않았다.
-#    실재 여부는 카탈로그에 물어야만 알 수 있다.
-check_opencode_models() {
-  command -v opencode > /dev/null 2>&1 || return 0
-  [ -s "$COWORK_OPENCODE_KEYFILE" ] || return 0   # 키가 없으면 조회 자체가 무의미(키 경고는 별도)
-  # 🛑 키를 주입해서 물어야 한다. 키 없이 `opencode models` 를 부르면 무료 모델만 돌려주므로
-  #    구독 모델이 전부 "없음" 으로 잡히는 **전면 오탐**이 난다(2026-08-10 실측: 4/4 오탐).
-  local avail
-  avail="$(OPENCODE_API_KEY="$(tr -d '[:space:]' < "$COWORK_OPENCODE_KEYFILE")" opencode models 2> /dev/null)" || return 0
-  # 구독 모델이 하나도 안 보이면 인증 실패·오프라인 등 조회 자체가 실패한 것이다 — 조용히 통과한다
-  # (여기서 경고를 쏟으면 정상 설정에서도 매번 잡음이 난다).
-  printf '%s\n' "$avail" | grep -q '^opencode-go/' || return 0
-  local ai model bad=0
-  for ai in "${COWORK_OPENCODE_NAMES[@]}"; do
-    wants "$ai" || continue
-    model="$(opencode_model_for "$ai")" || continue
-    printf '%s\n' "$avail" | grep -qxF "$model" && continue
-    printf '⚠️  %s 모델이 이 구독에 없다: %s\n' "$ai" "$model" >&2
-    bad=$((bad + 1))
-  done
-  [ "$bad" -eq 0 ] && return 0
-  printf '    이대로면 해당 AI 만 `Model not found` 로 실패한다. 사용 가능한 목록: `opencode models`\n' >&2
-  return 1
-}
 
 # config.toml 의 한 [models."<별칭>"] 절에서 키 하나의 값을 읽는다(따옴표 제거).
 # 절 밖의 같은 이름 키(예: 파일 첫 줄 default_model)를 잘못 집지 않도록 절 경계를 지킨다.
@@ -317,14 +216,14 @@ usage() {
              사람이 지정한 이름을 그대로 쓴다(임의로 바꾸지 말 것).
   <프롬프트> 분석 요청 원문. 여러 단어면 따옴표로 감싸거나 그대로 나열.
   --list     .cowork/ 의 작업 목록과 상태를 보여준다(-l). 동시 진행 중인 작업 파악용.
-  --init     .cowork/cowork-prompt.md (이 작업공간의 공통 지침) 초안을 만든다. 6 AI 분석마다 주입된다.
+  --init     .cowork/cowork-prompt.md (이 작업공간의 공통 지침) 초안을 만든다. 5 AI 분석마다 주입된다.
              이미 있으면 건드리지 않는다(사람이 다듬은 내용 보호). 덮어쓰려면 --force.
   --init-hook  이 프로젝트 .claude/settings.json 의 Stop hook 에 final-report 리뷰를 멱등 설치한다.
-  --review   <폴더명>의 final-report.md 를 6 AI 로 재검토해 갱신한다(보통 Stop hook 이 백그라운드로 호출).
+  --review   <폴더명>의 final-report.md 를 5 AI 로 재검토해 갱신한다(보통 Stop hook 이 백그라운드로 호출).
 
 환경변수:
   COWORK_TIMEOUT        AI 1개당 제한 시간(초, 기본 900)
-  COWORK_ONLY           실행할 AI 목록(기본 claude,codex,grok,kimi,glm,agy)
+  COWORK_ONLY           실행할 AI 목록(기본 claude,codex,grok,kimi,agy)
   COWORK_CLAUDE_MODEL   claude 모델(기본 claude-opus-5 = Opus 5 고정)
   COWORK_CLAUDE_EFFORT  claude 추론 등급(기본 xhigh)
   COWORK_CODEX_MODEL    codex 모델(기본 빈값 = ~/.codex/config.toml 의 최신 모델 상속)
@@ -337,17 +236,6 @@ usage() {
   COWORK_GROK_RETRIES   grok 빈응답/실패 시 재시도 횟수(기본 3)
   COWORK_KIMI_MODEL     kimi 모델(기본 kimi-code/k3-256k = K3 256K. 1M 짜리 k3 보다 context
                         quota 를 약 2배 절약한다 — 특별한 이유 없이 k3 로 되돌리지 말 것)
-  COWORK_OPENCODE_GLM_MODEL
-                        OpenCode 로 부를 유일한 모델(기본 opencode-go/glm-5.3).
-                        예전 COWORK_OPENCODE_MODEL 도 하위 호환 별칭으로 계속 지원한다.
-                        독립된 opencode run 프로세스 하나로 실행된다.
-  COWORK_OPENCODE_KEYFILE
-                        opencode API 키 파일. 지정하지 않으면 아래 두 경로를 순서대로 찾아
-                        먼저 실재하는 쪽을 쓴다:
-                          1) <작업공간>/.cowork/opencode-go-api.key  (로컬 — 여섯 AI 가 읽을 수
-                             있으므로 이 배치를 쓰면 실행할 때마다 경고한다)
-                          2) ~/.config/cowork/opencode-go-api.key    (권장 — 작업공간 밖)
-                        없거나 비면 glm 분석만 실패로 기록되고 나머지는 계속 간다.
   COWORK_AGY_MODEL      agy(Antigravity) 모델(기본 gemini-3.7-flash-high).
                         `agy models` 의 ID 를 그대로 쓴다. 실행 전에 실재 여부를 점검한다.
   COWORK_AGY_EFFORT     agy 추론 등급(기본 high; low|medium|high 만 지원 — 그 외 값은 high 로 폴백)
@@ -355,7 +243,7 @@ usage() {
 예:
   bash .claude/skills/cowork/scripts/cowork.sh login-timeout "로그인이 가끔 끊기는 원인 분석"
   bash .claude/skills/cowork/scripts/cowork.sh grade3-fractions "초등 3학년 분수 단원 구성이 적절한지 검토"
-  COWORK_ONLY=glm,agy COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh login-timeout "..."
+  COWORK_ONLY=kimi,agy COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh login-timeout "..."
   bash .claude/skills/cowork/scripts/cowork.sh --list
   bash .claude/skills/cowork/scripts/cowork.sh --init
 EOF
@@ -365,13 +253,6 @@ EOF
 # 실행 대상 AI 필터(COWORK_ONLY). 분석·리뷰가 공용하므로 앞에 둔다.
 wants() { [[ ",$COWORK_ONLY," == *",$1,"* ]]; }
 
-# OpenCode 분석 이름 → 고정 모델 ID. 분석·리뷰가 같은 모델을 쓰도록 이 함수가 SSOT 다.
-opencode_model_for() {
-  case "$1" in
-    glm) printf '%s\n' "$COWORK_OPENCODE_GLM_MODEL" ;;
-    *) return 1 ;;
-  esac
-}
 
 # --- 지침 블록 추출 ---------------------------------------------------------
 # 지침 파일에서 ---BEGIN <TAG>--- ~ ---END <TAG>--- 사이만 뽑는다(문서 설명문은 주입하지 않는다).
@@ -451,13 +332,13 @@ detect_workspace_facts() {
   printf -- '- **최상위 디렉토리**: %s\n' "$dirs"
 }
 
-# 6 AI 에게 주입할 "대상 작업공간" 블록을 만든다.
+# 5 AI 에게 주입할 "대상 작업공간" 블록을 만든다.
 #
 # `.cowork/cowork-prompt.md` 는 **이 작업공간의 시스템 프롬프트** 다 — 프로젝트의 특성·기획·계획·아바타
 # (persona)·디자인·로직·개념을 사람이 정의해 두는 곳이고, cowork 는 어떤 분석을 하든 이것을 **반드시**
-# 6 AI 에게 먹인다. 자동 감지는 그 아래 보조 사실일 뿐이다(파일 존재로 알 수 있는 것만).
+# 5 AI 에게 먹인다. 자동 감지는 그 아래 보조 사실일 뿐이다(파일 존재로 알 수 있는 것만).
 #
-# 이 함수의 반환값은 페르소나의 {{PROJECT_CONTEXT}} 에 치환된다 → 분석(claude·codex·kimi·OpenCode)·grok
+# 이 함수의 반환값은 페르소나의 {{PROJECT_CONTEXT}} 에 치환된다 → 분석(claude·codex·kimi·agy)·grok
 # pass1·pass2·리뷰 라운드가 **전부 같은 페르소나 문자열을 쓰므로 한 곳만 고치면 모든 경로에 전파된다.**
 # 새 실행 경로를 추가할 때도 persona 를 그대로 쓰면 cowork-prompt.md 주입이 자동으로 따라온다.
 build_project_context() {
@@ -620,7 +501,7 @@ run_grok_with_retries() {
 #   ② sandbox-exec → ①만으로는 구멍이 남는다. 같은 공격 실측에서 claude 자신이 "Agent·Workflow 로
 #      쓰기 권한을 가진 서브에이전트를 띄우면 기술적으로 가능하다" 고 지목했다(이번엔 스스로 자제했을
 #      뿐이다). 서브에이전트도 같은 프로세스 트리 안이므로 OS 레벨에서 막으면 EPERM 으로 함께 걸린다.
-#      grok·kimi·OpenCode 와 **같은 프로파일**이며, 실측에서 claude 는 이 샌드박스 아래서 정상
+#      grok·kimi·agy 와 **같은 프로파일**이며, 실측에서 claude 는 이 샌드박스 아래서 정상
 #      동작했다(git 저장소에서 rc=0 · stderr 0B · 저장소 무오염).
 #
 # ⚠️ sandbox-exec 가 없으면(macOS 외) grok·kimi 처럼 미실행하지 않고 ①만으로 진행한다 — claude 는
@@ -678,7 +559,7 @@ claude_cmd_desc() {
 # --- 읽기 전용 1-pass 러너 (리뷰·종합 공용) ----------------------------------
 # run_oneshot <ai> <프롬프트파일> <출력파일> <로그파일>
 # 각 AI 를 읽기 전용 1회로 실행한다. 방어는 분석 러너와 동일 원칙(claude=sandbox-exec+화이트리스트,
-# codex=--sandbox read-only, grok·kimi·OpenCode=sandbox-exec). grok 은 여기선 1-pass(리뷰는 이미 결론을
+# codex=--sandbox read-only, grok·kimi·agy=sandbox-exec). grok 은 여기선 1-pass(리뷰는 이미 결론을
 # 비판하는 작업이라 2-pass 불필요).
 # claude 는 run_claude_readonly() 를 그대로 부른다 — 분석과 리뷰가 **같은 실행 경로**를 쓰므로
 # 옵션이 한쪽에만 반영되는 사고가 구조적으로 불가능하다.
@@ -730,29 +611,11 @@ run_oneshot() {
       command -v sandbox-exec > /dev/null 2>&1 || { printf 'sandbox-exec 없음 — agy 미실행\n' > "$lg"; return 1; }
       command -v agy > /dev/null 2>&1 || { printf 'agy CLI 미설치 — agy 미실행\n' > "$lg"; return 1; }
       run_agy_readonly "$pf" "$out" "$lg" ;;
-    glm)
-      command -v sandbox-exec > /dev/null 2>&1 || { printf 'sandbox-exec 없음 — %s 미실행\n' "$ai" > "$lg"; return 1; }
-      command -v opencode > /dev/null 2>&1 || { printf 'opencode CLI 미설치 — %s 미실행\n' "$ai" > "$lg"; return 1; }
-      check_opencode_key || { printf 'opencode API 키 없음/비어 있음 — %s 미실행\n' "$ai" > "$lg"; return 1; }
-      local model; model="$(opencode_model_for "$ai")" || return 1
-      # `< /dev/null` 필수 — 없으면 opencode 가 stdin 을 기다리며 멈춘다(run_opencode_analysis 주석 참고).
-      (
-        export OPENCODE_API_KEY; OPENCODE_API_KEY="$(tr -d '[:space:]' < "$COWORK_OPENCODE_KEYFILE")"
-        cd "$REPO_ROOT" && run_timeout "$COWORK_TIMEOUT" \
-          sandbox-exec -p "$sbx" opencode run -m "$model" "$(cat "$pf")" \
-          > "$out" 2> "$lg" < /dev/null
-      )
-      local rc_o=$?
-      if [ -f "$out" ]; then
-        sed -i '' $'s/\033\\[[0-9;]*m//g' "$out" 2> /dev/null
-        sed -i '' '/^> build · /d' "$out" 2> /dev/null
-      fi
-      return $rc_o ;;
   esac
 }
 
 # --- --init: .cowork/cowork-prompt.md 초안 생성 -------------------------------------
-# 이 작업공간에서 6 AI 에게 매번 주입할 공통 지침 파일을 만든다(Overview·Persona·Instructions·Tech stack).
+# 이 작업공간에서 5 AI 에게 매번 주입할 공통 지침 파일을 만든다(Overview·Persona·Instructions·Tech stack).
 # 자동 감지로 뼈대와 사실만 채운다 — 나머지는 사람(또는 오케스트레이터)이 채워야 제 값을 한다.
 #
 # 🛑 이미 있으면 덮어쓰지 않는다. 사람이 다듬은 지침을 재실행 한 번으로 날리면 안 된다(--force 로만 교체).
@@ -782,30 +645,30 @@ do_init_prompt() {
   cat > "$pf" <<EOF
 # cowork 시스템 프롬프트 — $wsname
 
-> 🛑 이 파일은 \`cowork\` 이 claude·codex·grok·kimi·glm·agy **여섯 AI 에게 분석을
-> 시킬 때마다 프롬프트 맨 앞에 반드시 주입** 하는 **이 프로젝트의 시스템 프롬프트** 다. 여섯 AI 는 매번 이 문서를 전제로 분석한다.
+> 🛑 이 파일은 \`cowork\` 이 claude·codex·grok·kimi·agy **다섯 AI 에게 분석을
+> 시킬 때마다 프롬프트 맨 앞에 반드시 주입** 하는 **이 프로젝트의 시스템 프롬프트** 다. 다섯 AI 는 매번 이 문서를 전제로 분석한다.
 >
 > 이 프로젝트의 **특성·기획·계획·아바타(persona)·디자인·로직·개념** 을 여기에 적어 두면, 어떤 분석을
-> 시키든 여섯 AI 가 같은 맥락 위에서 답한다. 반대로 비워 두면 여섯 AI 는 프로젝트의 목적을 모른 채
+> 시키든 다섯 AI 가 같은 맥락 위에서 답한다. 반대로 비워 두면 다섯 AI 는 프로젝트의 목적을 모른 채
 > 일반론으로 분석한다 — **채울수록 결과가 좋아지는 파일이다.**
 >
 > \`cowork.sh --init\` 이 자동 감지로 만든 **초안** 이다. 아래 네 절은 뼈대일 뿐이니, 필요하면 절을
 > 더 추가하라(\`## 기획\`, \`## 용어 정의\`, \`## 설계 규칙\`, \`## 데이터 구조\`, \`## 금지사항\` …).
 >
-> ⚠️ 여섯 AI 는 읽기 전용이다. 이 문서에 "파일을 만들어라" 같은 지시를 써도 물리적으로 실행되지 않는다
+> ⚠️ 다섯 AI 는 읽기 전용이다. 이 문서에 "파일을 만들어라" 같은 지시를 써도 물리적으로 실행되지 않는다
 > (실제 작업은 종합(final-report.md)을 마친 오케스트레이터가 한다).
 
 ## Overview
 
-(이 프로젝트가 **무엇인지**, 무엇을 만들고 있고 지금 어느 단계인지, 그리고 6 AI 에게 **무엇을
+(이 프로젝트가 **무엇인지**, 무엇을 만들고 있고 지금 어느 단계인지, 그리고 5 AI 에게 **무엇을
  시키려는지** 를 쓴다. 프로젝트의 특성·기획 의도·목표·계획을 여기에 담는다.
  예: "초등 3~4학년 수학 교재를 만드는 프로젝트. 현재 1학기 분수 단원 초안까지 나왔다.
- 단원 구성·난이도 배열·오답 유형의 타당성을 여섯 AI 에게 교차 검증시킨다."
+ 단원 구성·난이도 배열·오답 유형의 타당성을 다섯 AI 에게 교차 검증시킨다."
  예: "웹 브라우저용 테트리스. 코어 로직은 완성, 지금은 난이도 곡선과 조작감을 다듬는 단계다.")
 
 ## Persona
 
-(6 AI 가 **어떤 전문가 역할(아바타)** 로 분석해야 하는지 쓴다. 이 프로젝트의 분야에 맞는 인격을
+(5 AI 가 **어떤 전문가 역할(아바타)** 로 분석해야 하는지 쓴다. 이 프로젝트의 분야에 맞는 인격을
  부여하면 분석의 관점 자체가 달라진다.
  예: "초등 수학 교육과정 설계 전문가이자 아동 인지발달 관점의 교재 검수자."
  예: "낙하형 퍼즐 게임의 조작감·난이도 곡선을 설계해 온 시니어 게임 디자이너.")
@@ -813,7 +676,7 @@ do_init_prompt() {
 ## Instructions
 
 (분석 시 **반드시 지킬 규칙·개념·설계 로직·우선순위·금지사항** 을 쓴다. 이 프로젝트의 불변 규칙과
- 핵심 개념을 여기에 정의해 두면 여섯 AI 가 그것을 어기는 권고를 하지 않는다.
+ 핵심 개념을 여기에 정의해 두면 다섯 AI 가 그것을 어기는 권고를 하지 않는다.
  예:
  - 모든 주장에는 \`파일:줄\` 근거를 붙이고, 근거 없는 주장은 \`[추측]\` 으로 표시한다.
  - 대상 독자는 만 9~10세다. 그 어휘 수준을 넘는 제안은 하지 않는다.
@@ -829,7 +692,7 @@ $facts
 EOF
 
   printf '✅ 생성: .cowork/cowork-prompt.md\n' >&2
-  printf '   6 AI 분석마다 이 파일이 프롬프트에 주입된다. 네 절(Overview·Persona·Instructions·Tech stack)을\n' >&2
+  printf '   5 AI 분석마다 이 파일이 프롬프트에 주입된다. 네 절(Overview·Persona·Instructions·Tech stack)을\n' >&2
   printf '   이 작업공간에 맞게 채워라 — 채울수록 분석 품질이 올라간다.\n' >&2
 }
 
@@ -858,11 +721,11 @@ do_init_hook() {
   ' "$settings" > "$tmp" && mv "$tmp" "$settings" || die "settings.json 갱신 실패: $settings"
   printf '✅ 설치 완료: %s\n' "$settings" >&2
   printf '   이제 cowork 분석이 끝나면 Stop hook 이 .review-final-report 마커를 보고,\n' >&2
-  printf '   final-report.md 를 6 AI 로 백그라운드 재검토해 갱신한다(세션은 안 멈춤).\n' >&2
+  printf '   final-report.md 를 5 AI 로 백그라운드 재검토해 갱신한다(세션은 안 멈춤).\n' >&2
 }
 
 # --- --review: final-report.md 최종 리뷰 라운드 ------------------------------
-# Stop hook 이 nohup 백그라운드로 호출한다. 6 AI 가 종합본을 재검토 → claude 가 반영해 갱신.
+# Stop hook 이 nohup 백그라운드로 호출한다. 5 AI 가 종합본을 재검토 → claude 가 반영해 갱신.
 # 상세·페르소나·종합 프롬프트 SSOT: references/final-report-review.md
 do_review() {
   local slug="$1"
@@ -908,7 +771,7 @@ do_review() {
     done
   } > "$rprompt"
 
-  # 6 AI 병렬 리뷰(1-pass)
+  # 5 AI 병렬 리뷰(1-pass)
   # 🛑 이전 라운드의 리뷰 파일을 먼저 지운다. 안 지우면 이번에 실패한 AI 의 *지난* 리뷰가 그대로
   #    남아 새 리뷰인 것처럼 종합에 실린다(2026-08-08 감사 지적).
   local pids=() rnames=()
@@ -969,7 +832,7 @@ do_review() {
   local stamp; stamp="$(date '+%Y-%m-%d %H:%M')"
   {
     printf '## 리뷰 라운드 — %s\n\n' "$stamp"
-    printf '> 6 AI 리뷰(claude·codex·grok·kimi·glm·agy) → claude 종합 → final-report.md **%s**\n\n' "$applied"
+    printf '> 5 AI 리뷰(claude·codex·grok·kimi·agy) → claude 종합 → final-report.md **%s**\n\n' "$applied"
     [ -n "$changelog" ] && printf '%s\n\n' "$changelog"
     printf -- '- 원본 백업: `.review/final-report.before.md`\n\n---\n\n'
   } >> "$logf"
@@ -1148,11 +1011,15 @@ $(cat "${LOG_DIR:-}/$name.log" 2> /dev/null)"
       printf -- '- 명령: `%s`\n' "$cmd"
       printf -- '- 로그: `.cowork/%s/.logs/%s.log`\n\n' "$SLUG" "$name"
       printf '이 파일은 분석 결과가 아니다. 종합(final-report.md) 시 %s 의견은 **없는 것으로** 취급하고,\n' "$name"
-      if [ "$diag" = "사용량 한도 초과" ]; then
-        printf '그 사실을 final-report.md 에 명시하라. 한도 문제이므로 **지금 재시도하지 말라** — 나머지 AI 로 종합을 진행하라.\n'
-      else
-        printf '그 사실을 final-report.md 에 명시하라. 재시도: `COWORK_ONLY=%s bash .claude/skills/cowork/scripts/cowork.sh %s "..."`\n' "$name" "$SLUG"
-      fi
+      case "$diag" in
+        "사용량 한도 초과")
+          printf '그 사실을 final-report.md 에 명시하라. 한도 문제이므로 **지금 재시도하지 말라** — 나머지 AI 로 종합을 진행하라.\n' ;;
+        "제한 시간 초과 — 인증·할당량 의심")
+          printf '그 사실을 final-report.md 에 명시하라. **위 키 점검을 먼저 하고** 재시도하라 — 키가 문제면 그냥 재시도해도 %ss 를 또 버린다:\n' "$COWORK_TIMEOUT"
+          printf '`COWORK_ONLY=%s bash .claude/skills/cowork/scripts/cowork.sh %s "..."`\n' "$name" "$SLUG" ;;
+        *)
+          printf '그 사실을 final-report.md 에 명시하라. 재시도: `COWORK_ONLY=%s bash .claude/skills/cowork/scripts/cowork.sh %s "..."`\n' "$name" "$SLUG" ;;
+      esac
       [ -n "$body" ] && { printf '\n<details><summary>부분 출력</summary>\n\n```\n%s\n```\n\n</details>\n' "$body"; }
     } > "$file"
     return 1
@@ -1168,7 +1035,7 @@ $(cat "${LOG_DIR:-}/$name.log" 2> /dev/null)"
   return 0
 }
 
-# --- 분석 러너 8종 (claude·codex·grok·kimi·agy + OpenCode 3모델) -------------------------
+# --- 분석 러너 5종 (claude·codex·grok·kimi·agy) -------------------------
 # 공통: cwd=REPO_ROOT (각 CLI 가 CLAUDE.md/AGENTS.md 를 자동으로 읽게 한다)
 
 run_claude() {
@@ -1369,64 +1236,6 @@ run_kimi() {
   finalize kimi "$file" "$rc" "$((SECONDS - t0))" "sandbox-exec + kimi -p -m $COWORK_KIMI_MODEL --output-format text (OS 읽기 전용)"
 }
 
-# --- OpenCode (독립 CLI 프로세스) --------------------------------------------
-# 지금은 glm 하나뿐이지만 이 함수는 **이름·모델을 인자로 받는 일반 러너**로 남겨 둔다 —
-# 모델을 다시 늘릴 때 run_<이름> 래퍼만 추가하면 되도록(2026-08-17 이전에는 세 모델이 이 함수를 공유했다).
-# 메인 병렬 루프가 run_glm 을 백그라운드로 띄우고, 이 함수가 정확히 한 번의 `opencode run` 을 실행한다.
-# 인증은 키 파일 → OPENCODE_API_KEY 환경변수 주입(인자로 넘기면 `ps` 에 키가 그대로 보인다).
-run_opencode_analysis() {
-  local name="$1" model="$2"
-  local t0=$SECONDS
-  local file="$OUT_DIR/$name-cowork.md"
-  local log="$OUT_DIR/.logs/$name.log"
-  local rc=0
-
-  if ! command -v opencode > /dev/null 2>&1; then
-    printf 'opencode CLI 를 찾을 수 없다. 설치: https://opencode.ai\n' > "$log"
-    finalize "$name" "$file" 96 "$((SECONDS - t0))" "opencode CLI 미설치"
-    return 1
-  fi
-  if ! check_opencode_key; then
-    printf 'opencode API 키 파일이 없거나 비어 있다: %s\n\n' "$COWORK_OPENCODE_KEYFILE" > "$log"
-    printf 'OpenCode Go 구독 키를 아래 두 경로 중 하나에 저장하면 자동으로 찾는다:\n' >> "$log"
-    printf '  1) %s/.cowork/opencode-go-api.key   (작업공간 로컬 — 여섯 AI 가 읽을 수 있으니 주의)\n' "$REPO_ROOT" >> "$log"
-    printf '  2) ~/.config/cowork/opencode-go-api.key   (권장 — 작업공간 밖이라 여섯 AI 가 못 읽는다)\n\n' >> "$log"
-    printf '  mkdir -p ~/.config/cowork\n' >> "$log"
-    printf '  <키> > ~/.config/cowork/opencode-go-api.key && chmod 600 ~/.config/cowork/opencode-go-api.key\n' >> "$log"
-    finalize "$name" "$file" 97 "$((SECONDS - t0))" "opencode API 키 없음"
-    return 1
-  fi
-
-  # 🛑 opencode 도 headless 에서 쓰기 도구를 실행할 수 있다 — grok·kimi 와 동일하게 OS 레벨
-  #    sandbox-exec 로 프로젝트 쓰기를 물리 차단한다. 이 래핑을 벗기지 말 것.
-  if ! command -v sandbox-exec > /dev/null 2>&1; then
-    printf 'sandbox-exec 없음 — %s 을 읽기 전용으로 가둘 수 없어 실행하지 않았다(macOS 전용).\n' "$name" > "$log"
-    finalize "$name" "$file" 98 "$((SECONDS - t0))" "sandbox-exec 부재로 미실행"
-    return 1
-  fi
-  local sbx_profile
-  sbx_profile="$(printf '(version 1)\n(allow default)\n(deny file-write* (subpath "%s"))\n' "$REPO_ROOT_PHYS")"
-
-  # 🛑 `< /dev/null` 을 반드시 붙인다. opencode 는 stdin 이 열려 있으면 입력을 기다리며 무한정
-  #    멈춘다(2026-08-08 실측: 3분 넘게 0바이트 출력, 프로세스만 쌓였다). 이 리다이렉션을 지우지 말 것.
-  (
-    export OPENCODE_API_KEY; OPENCODE_API_KEY="$(tr -d '[:space:]' < "$COWORK_OPENCODE_KEYFILE")"
-    cd "$REPO_ROOT" && run_timeout "$COWORK_TIMEOUT" \
-      sandbox-exec -p "$sbx_profile" \
-        opencode run -m "$model" "$(cat "$PROMPT_FILE")" \
-        > "$file" 2> "$log" < /dev/null
-  )
-  rc=$?
-  # opencode 는 출력 앞에 ANSI 색코드와 `> build · <model>` 헤더를 붙인다 — 분석 내용이 아니므로 제거.
-  if [ -f "$file" ]; then
-    sed -i '' $'s/\033\\[[0-9;]*m//g' "$file" 2> /dev/null
-    sed -i '' '/^> build · /d' "$file" 2> /dev/null
-  fi
-  finalize "$name" "$file" "$rc" "$((SECONDS - t0))" \
-    "sandbox-exec + opencode run -m $model (OS 읽기 전용)"
-}
-
-run_glm() { run_opencode_analysis glm "$COWORK_OPENCODE_GLM_MODEL"; }
 
 # --- agy (Antigravity CLI · Gemini 3.7 Flash High) ---------------------------
 # 실행 옵션은 전부 실측으로 정해졌다(2026-08-14). 하나씩 이유가 있으니 임의로 빼지 말 것.
@@ -1478,27 +1287,19 @@ printf '🔍 cowork: %s\n' "$SLUG" >&2
 printf '   요청: %s\n' "$PROMPT_TEXT" >&2
 printf '   출력: .cowork/%s/  (제한 %ss · 대상 %s)\n' "$SLUG" "$COWORK_TIMEOUT" "$COWORK_ONLY" >&2
 if [ -f "$REPO_ROOT/.cowork/cowork-prompt.md" ]; then
-  printf '   지침: .cowork/cowork-prompt.md 를 6 AI 에 주입함\n\n' >&2
+  printf '   지침: .cowork/cowork-prompt.md 를 5 AI 에 주입함\n\n' >&2
 elif [ -f "$REPO_ROOT/.cowork/prompt.md" ]; then
   # 예전 이름 — 읽어는 주되(하위 호환), 새 이름으로 바꾸라고 알린다.
-  printf '   지침: .cowork/prompt.md 를 6 AI 에 주입함 (예전 이름)\n' >&2
+  printf '   지침: .cowork/prompt.md 를 5 AI 에 주입함 (예전 이름)\n' >&2
   printf '   ⚠️  파일명이 바뀌었다 — `mv .cowork/prompt.md .cowork/cowork-prompt.md` 로 옮겨라.\n\n' >&2
 else
-  # 시스템 프롬프트가 없으면 여섯 AI 가 프로젝트 목적을 모른 채 일반론으로 분석한다 — 사람에게 알린다.
+  # 시스템 프롬프트가 없으면 다섯 AI 가 프로젝트 목적을 모른 채 일반론으로 분석한다 — 사람에게 알린다.
   printf '   💡 .cowork/cowork-prompt.md 가 없다 — `cowork.sh --init` 으로 이 프로젝트의 시스템 프롬프트\n' >&2
   printf '      (특성·기획·계획·페르소나·로직·개념)를 만들어 두면 이후 모든 분석 품질이 올라간다.\n\n' >&2
 fi
 
 wants kimi && check_kimi_model_alias
 wants agy && { check_agy_model || true; }
-for ai in "${COWORK_OPENCODE_NAMES[@]}"; do
-  if wants "$ai"; then
-    check_opencode_key || true   # 경고만 — 실행 여부는 각 run_<ai> 가 판정
-    check_opencode_models || true
-    break
-  fi
-done
-
 declare -a NAMES=() PIDS=()
 for ai in "${COWORK_AI_NAMES[@]}"; do
   wants "$ai" || continue
@@ -1531,7 +1332,7 @@ if [ "$ok" -eq 0 ]; then
 fi
 
 # --- 배턴 넘기기 (이 블록을 지우지 말 것) -----------------------------------
-# 이 스크립트는 cowork 파이프라인의 *절반*(6 AI 분석)만 한다. 나머지 절반(종합=final-report.md)은
+# 이 스크립트는 cowork 파이프라인의 *절반*(5 AI 분석)만 한다. 나머지 절반(종합=final-report.md)은
 # 오케스트레이터(Claude)가 해야 하는데, 그 경계에서 배턴이 떨어지는 사고가 실제로 났다:
 #
 #   2026-07-16 실측 — cowork 두 건을 겹쳐 돌리자(11:18 product-load-fail, 11:25 billing-code6)
