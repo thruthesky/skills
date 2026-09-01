@@ -1,0 +1,9 @@
+{
+  "name": "godot",
+  "version": "1.0.0",
+  "description": "최신 Godot 으로 3D 게임을 개발할 때 따라야 할 개발 규범과 검증 도구를 제공하며, Godot 을 배우는 학습 자료이기도 한 스킬. GDScript, 노드·씬·.tscn, Node3D 좌표계, Jolt Physics, CharacterBody3D, 머티리얼·라이팅·셰이더, AnimationTree, 내비게이션, 입력·UI(HUD·메뉴·Theme·한글 폰트), glTF 임포트, 오디오, 멀티플레이어, 저사양 안드로이드(3GB RAM) 60fps 최적화, project.godot 포맷, LSP 정적 검증, EditorPlugin, Asset Store, 레벨 디자인(CSG·GridMap·블록아웃), 헤드리스 워크플로우, Android·iOS·macOS·Windows 빌드와 실기기 설치·실행을 다룬다. 초보자를 위한 첫 3D 씬 만들기 예제(references/example.md)와 용어집(references/dictionary.md)을 포함한다.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "license": "MIT"
+}
