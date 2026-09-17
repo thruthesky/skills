@@ -3,8 +3,8 @@
 #
 #   설치: bash .claude/skills/cowork/scripts/cowork.sh --init-hook  (settings.json 에 멱등 등록)
 #         ⚠️ --init 은 시스템 프롬프트 .cowork/cowork-prompt.md 를 만드는 별개 명령이다(혼동 주의).
-#   역할: cowork 분석이 끝나 final-report.md 가 만들어진 작업을 찾아, 그 final-report.md 를 6 AI 로
-#         한 번 더 재검토(리뷰 라운드)하도록 백그라운드에 던진다.
+#   역할: cowork 분석이 끝나 final-report.md 가 만들어진 작업을 찾아, 그 final-report.md 를 6 AI
+#         (claude·codex·copilot-grok·copilot-mai·kimi·agy)로 한 번 더 재검토(리뷰 라운드)하도록 백그라운드에 던진다.
 #
 # 설계 요지
 #   - Stop hook 은 blocking 이다(세션이 hook 종료를 기다린다). 그런데 리뷰 라운드는 6 AI + 종합으로

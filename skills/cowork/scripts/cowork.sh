@@ -1,28 +1,27 @@
 #!/usr/bin/env bash
-# cowork.sh — claude·codex·grok·kimi·agy 다섯 CLI 를 읽기 전용 분석가로 병렬 실행한다.
+# cowork.sh — claude·codex·copilot(Grok 4.5 / MAI-Code-1.1-Flash)·kimi·agy 여섯 AI 를 읽기 전용
+#             분석가로 병렬 실행한다. copilot 은 모델만 다른 **두 개의 독립 프로세스**로 띄운다.
 #
 #   사용: bash .claude/skills/cowork/scripts/cowork.sh <slug> <분석 요청 프롬프트>
-#   결과: .cowork/<slug>/{claude,codex,grok,kimi,agy}-cowork.md
+#   결과: .cowork/<slug>/{claude,codex,copilot-grok,copilot-mai,kimi,agy}-cowork.md
 #
 # 이 스크립트는 **분야를 가리지 않는다.** 작업공간이 소프트웨어 저장소든, 교재·문제은행·레시피·기획서
 # 폴더든 동일하게 동작한다. 작업공간의 성격은 `.cowork/cowork-prompt.md`(사람이 쓴 지침) + 실행 시점 자동
 # 감지로 주입한다 — 특정 분야를 이 스크립트나 페르소나에 하드코딩하지 말 것.
 #
 # 설계 요지
-#   - 다섯 AI 는 읽기 전용으로 강제된다. AI 자신은 작업공간 파일을 쓸 수 없고, 분석은 stdout 으로만
+#   - 여섯 AI 는 읽기 전용으로 강제된다. AI 자신은 작업공간 파일을 쓸 수 없고, 분석은 stdout 으로만
 #     낸다. 파일 기록은 이 스크립트가 한다.
 #     → "절대 수정 금지" 를 프롬프트(부탁)가 아니라 도구/OS 권한(강제)으로 보장한다.
 #   - ⚠️ 방어 수단이 CLI 마다 다른 이유는 실측 결과가 다르기 때문이다. 근거와 재현 절차는
-#     references/readonly-enforcement.md 참고. 임의로 통일하지 말 것(특히 grok·kimi).
-#   - 다섯 AI 는 동시에 돌린다(가장 느린 하나의 시간만 걸린다).
+#     references/readonly-enforcement.md 참고. 임의로 통일하지 말 것(특히 kimi·agy).
+#   - 여섯 AI 는 동시에 돌린다(가장 느린 하나의 시간만 걸린다).
 #   - 하나가 실패해도 나머지는 계속 간다. 실패는 마지막 STATUS 요약에 남는다.
 #   - macOS 에는 timeout(1) 이 없으므로 perl alarm 워치독을 쓴다.
 set -uo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PERSONA_FILE="$SKILL_DIR/references/analyst-persona.md"
-# grok 전용 2-pass 지침(CoT/ToT → 자기 비판 → 재분석). grok 에만 주입한다.
-GROK_PROTOCOL_FILE="$SKILL_DIR/references/grok-deep-protocol.md"
 # 프로젝트 루트. git 저장소면 그 최상위를, 아니면 스킬 위치에서 역산한다
 # (SKILL_DIR = <루트>/.claude/skills/cowork → 3단계 위가 루트).
 # ⚠️ pwd 로 폴백하면 안 된다 — 사용자가 하위 폴더에서 실행하면 .cowork/ 가 엉뚱한 곳에 생긴다.
@@ -40,8 +39,15 @@ COWORK_TIMEOUT="${COWORK_TIMEOUT:-900}"
 #    deepseek·minimax·qwen(→ 이후 glm-5.3 하나로 축소)이 여기서 사라졌다. 되살리려면 이 배열,
 #    run_<이름> 래퍼, run_oneshot 의 분기, 키 파일 탐색·점검, 문서의 산출물 트리를 함께 되돌려야
 #    한다. 이력·실측 근거: references/readonly-enforcement.md §OpenCode(제거됨).
-COWORK_AI_NAMES=(claude codex grok kimi agy)
-COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi,agy}"
+#
+# 🛑 2026-09-17 사용자 지시: **grok CLI 를 빼고 GitHub Copilot CLI 로 대신했다.** copilot 은 모델만
+#    다른 **완전히 별개의 두 프로세스**로 띄워 두뇌 둘을 따로 쓴다 —
+#      copilot-grok = Grok 4.5 · copilot-mai = MAI-Code-1.1-Flash
+#    grok CLI 전용이던 2-pass(자기 비판) · leader 소켓 격리 · 빈 응답 재시도도 함께 사라졌다.
+#    이력·실측 근거: references/readonly-enforcement.md §grok CLI(제거됨).
+#    이름에 하이픈이 있어 러너는 `run_${ai//-/_}`(= run_copilot_grok) 로 찾는다.
+COWORK_AI_NAMES=(claude codex copilot-grok copilot-mai kimi agy)
+COWORK_ONLY="${COWORK_ONLY:-claude,codex,copilot-grok,copilot-mai,kimi,agy}"
 
 # --- 모델·추론 등급 정책 (2026-07-21 사용자 지시: 반드시 최신/최고 모델의 최고 등급) ---------
 # 각 CLI 의 기본값에 맡기지 않고 최고 등급을 명시 고정한다. 근거(실측 2026-07-21):
@@ -52,9 +58,12 @@ COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi,agy}"
 #   - codex : 사용자 ~/.codex/config.toml 이 model_reasoning_effort="low" 라서 그대로 두면
 #             저사양으로 분석된다(실측). effort 만 xhigh 로 강제 override 하고, 모델은 config 의
 #             최신 선택(현재 gpt-5.6-sol)을 상속한다(여기 하드코딩하면 구모델 고정 위험).
-#   - grok  : 모델은 grok-4.5 단일(default=최고)이라 미지정이 곧 최신. effort 는 CLI 가
-#             high/medium/low 만 지원(xhigh 는 "unknown effort level" 로 거절 — 2026-07-21 실측).
-#             정책상 xhigh 급을 쓰되, grok 에 xhigh 가 없으면 그냥 high 로 쓴다(아래 정규화).
+#   - copilot: GitHub Copilot CLI(`copilot -p`). 모델을 **명시 고정**한 두 프로세스를 따로 띄운다
+#             (2026-09-17 사용자 지시) — copilot-grok=`grok-4.5`, copilot-mai=`mai-code-1.1-flash`.
+#             CLI 는 --reasoning-effort 에 none~max 를 받지만, **두 모델 모두 xhigh·max 를
+#             거절한다**(`Reasoning effort "xhigh" is not supported for model "grok-4.5"` — 2026-09-17
+#             실측, mai-code-1.1-flash 도 같음). 그래서 high 가 최고다(아래 정규화).
+#             `auto` 를 쓰지 않는 이유: 두 두뇌를 따로 쓰는 것이 목적이라 라우팅에 맡기면 의미가 없다.
 #   - kimi  : K3 256K(kimi-code/k3-256k)를 명시 고정. K3 계열은 k3(1M context)와 k3-256k(256K)
 #             두 가지인데, **반드시 k3-256k 를 쓴다** — 같은 K3 성능에 context quota 를 약 2배
 #             절약한다(2026-08-08 사용자 지시). 분석 1건이 1M 컨텍스트를 쓸 일은 없으므로
@@ -68,7 +77,7 @@ COWORK_ONLY="${COWORK_ONLY:-claude,codex,grok,kimi,agy}"
 #             가 구독에 없어 빠진 뒤 공백이었던 자리를, 자체 CLI 를 가진 Antigravity 로 메운다.
 #             모델 ID 의 `-high` 접미어 자체가 추론 등급이라 `--effort` 와 의미가 겹치지만,
 #             CLI 가 두 값을 모두 받으므로 둘 다 최고로 맞춘다(--effort 는 low|medium|high 만
-#             지원 — grok 과 같이 xhigh 는 없어 high 가 최고다. 아래에서 정규화한다).
+#             지원 — xhigh 는 없어 high 가 최고다. 아래에서 정규화한다).
 # 값을 낮춰야 할 때(요금·속도)만 환경변수로 override 한다. 기본을 낮추지 말 것.
 COWORK_CLAUDE_MODEL="${COWORK_CLAUDE_MODEL:-claude-opus-5}"
 COWORK_CLAUDE_EFFORT="${COWORK_CLAUDE_EFFORT:-xhigh}"
@@ -81,17 +90,20 @@ COWORK_CODEX_MODEL="${COWORK_CODEX_MODEL:-}"   # 비우면 ~/.codex/config.toml 
 #    `gpt-5.6-terra` 는 같은 계정에서 정상 응답함을 실측 확인했다(2026-08-10).
 #    빈 문자열로 두면 fallback 을 쓰지 않는다.
 COWORK_CODEX_FALLBACK_MODEL="${COWORK_CODEX_FALLBACK_MODEL:-gpt-5.6-terra}"
-# grok effort: 기본 high. xhigh/max 등 CLI 미지원 값이 오면 high 로 폴백(거절 방지).
-COWORK_GROK_EFFORT="${COWORK_GROK_EFFORT:-high}"
-case "$COWORK_GROK_EFFORT" in
-  high|medium|low) ;;  # CLI 허용값 그대로
-  *)                   # xhigh 없음 → high (실측: --reasoning-effort xhigh 거절)
-    COWORK_GROK_EFFORT="high"
-    ;;
+# --- copilot (GitHub Copilot CLI) — 두 두뇌를 별개 프로세스로 ------------------------
+# 모델 ID 는 `copilot help config` 의 `model` 목록에 있는 것을 그대로 쓴다.
+COWORK_COPILOT_GROK_MODEL="${COWORK_COPILOT_GROK_MODEL:-grok-4.5}"
+COWORK_COPILOT_MAI_MODEL="${COWORK_COPILOT_MAI_MODEL:-mai-code-1.1-flash}"
+# effort: 두 모델이 공용한다. xhigh·max 는 두 모델 모두 거절하므로(실측) high 로 폴백한다 —
+# 그대로 넘기면 분석이 5초 만에 `not supported` 로 죽는다.
+COWORK_COPILOT_EFFORT="${COWORK_COPILOT_EFFORT:-high}"
+case "$COWORK_COPILOT_EFFORT" in
+  high|medium|low|minimal|none) ;;
+  *) COWORK_COPILOT_EFFORT="high" ;;
 esac
-# grok headless 가 도구 승인 레이스/부모 세션 leader 충돌로 빈 응답(exit 99) 나는 경우 재시도 횟수
-# (2026-07-21 실측: permission_cancelled → turn 취소 → stdout 0B). 기본 3회.
-COWORK_GROK_RETRIES="${COWORK_GROK_RETRIES:-3}"
+# 모델에게 보여 줄 도구. **읽기 도구만** 둔다(claude 의 Read/Grep/Glob 과 같은 자리). 이 목록은
+# 읽기 전용 방어의 한 겹이므로 환경변수로 열어 두지 않는다 — 근거: run_copilot_readonly() 주석.
+COPILOT_READONLY_TOOLS="view,grep,glob"
 COWORK_KIMI_MODEL="${COWORK_KIMI_MODEL:-kimi-code/k3-256k}"
 # 정책상 **반드시** 써야 하는 값(2026-08-08 사용자 지시: "꼭 k3-256k 를 써야 한다").
 # COWORK_KIMI_MODEL 이 여기서 벗어나면 check_kimi_model_alias() 가 실행 전에 경고한다 —
@@ -102,7 +114,7 @@ COWORK_KIMI_CONTEXT_REQUIRED="262144"
 # --- agy (Antigravity CLI) ---------------------------------------------------
 # 모델 ID 는 `agy models` 목록의 것을 그대로 쓴다(프로바이더 접두어가 없는 평문 ID).
 COWORK_AGY_MODEL="${COWORK_AGY_MODEL:-gemini-3.7-flash-high}"
-# effort: CLI 가 low|medium|high 만 받는다(grok 과 같은 제약). xhigh 등이 오면 high 로 폴백한다.
+# effort: CLI 가 low|medium|high 만 받는다. xhigh 등이 오면 high 로 폴백한다.
 COWORK_AGY_EFFORT="${COWORK_AGY_EFFORT:-high}"
 case "$COWORK_AGY_EFFORT" in
   high|medium|low) ;;
@@ -134,7 +146,7 @@ check_agy_model() {
 
 # kimi 는 `-m` 에 config.toml 의 **별칭** 을 받는다. 등록돼 있지 않으면 API 에 닿기도 전에
 # `config.invalid: Model "..." is not configured` 로 즉시 거절당한다(2026-08-08 실측).
-# 다섯 AI 중 하나가 통째로 빠진 채 분석이 끝나는 사고를 막으려고 실행 전에 점검해 안내한다.
+# 여섯 AI 중 하나가 통째로 빠진 채 분석이 끝나는 사고를 막으려고 실행 전에 점검해 안내한다.
 # (안내만 하고 진행한다 — 사용자의 개인 설정 파일을 스크립트가 임의로 고치지 않는다.)
 
 # config.toml 의 한 [models."<별칭>"] 절에서 키 하나의 값을 읽는다(따옴표 제거).
@@ -216,14 +228,14 @@ usage() {
              사람이 지정한 이름을 그대로 쓴다(임의로 바꾸지 말 것).
   <프롬프트> 분석 요청 원문. 여러 단어면 따옴표로 감싸거나 그대로 나열.
   --list     .cowork/ 의 작업 목록과 상태를 보여준다(-l). 동시 진행 중인 작업 파악용.
-  --init     .cowork/cowork-prompt.md (이 작업공간의 공통 지침) 초안을 만든다. 5 AI 분석마다 주입된다.
+  --init     .cowork/cowork-prompt.md (이 작업공간의 공통 지침) 초안을 만든다. 6 AI 분석마다 주입된다.
              이미 있으면 건드리지 않는다(사람이 다듬은 내용 보호). 덮어쓰려면 --force.
   --init-hook  이 프로젝트 .claude/settings.json 의 Stop hook 에 final-report 리뷰를 멱등 설치한다.
-  --review   <폴더명>의 final-report.md 를 5 AI 로 재검토해 갱신한다(보통 Stop hook 이 백그라운드로 호출).
+  --review   <폴더명>의 final-report.md 를 6 AI 로 재검토해 갱신한다(보통 Stop hook 이 백그라운드로 호출).
 
 환경변수:
   COWORK_TIMEOUT        AI 1개당 제한 시간(초, 기본 900)
-  COWORK_ONLY           실행할 AI 목록(기본 claude,codex,grok,kimi,agy)
+  COWORK_ONLY           실행할 AI 목록(기본 claude,codex,copilot-grok,copilot-mai,kimi,agy)
   COWORK_CLAUDE_MODEL   claude 모델(기본 claude-opus-5 = Opus 5 고정)
   COWORK_CLAUDE_EFFORT  claude 추론 등급(기본 xhigh)
   COWORK_CODEX_MODEL    codex 모델(기본 빈값 = ~/.codex/config.toml 의 최신 모델 상속)
@@ -232,8 +244,12 @@ usage() {
                         1차가 **모델 거절**로 실패했을 때만 한 번 재시도할 모델(기본 gpt-5.6-terra).
                         계정 등급·모델 폐기로 특정 모델만 400 거절되는 일이 실재한다. 네트워크·
                         타임아웃 같은 일반 실패에는 재시도하지 않는다. 빈값이면 fallback 없음.
-  COWORK_GROK_EFFORT    grok 추론 등급(기본 high; xhigh 등 미지원 값은 high 로 폴백)
-  COWORK_GROK_RETRIES   grok 빈응답/실패 시 재시도 횟수(기본 3)
+  COWORK_COPILOT_GROK_MODEL
+                        copilot-grok 프로세스의 모델(기본 grok-4.5)
+  COWORK_COPILOT_MAI_MODEL
+                        copilot-mai 프로세스의 모델(기본 mai-code-1.1-flash)
+  COWORK_COPILOT_EFFORT copilot 두 프로세스 공용 추론 등급(기본 high; 두 모델 모두 xhigh·max 를
+                        거절하므로 그 값은 high 로 폴백)
   COWORK_KIMI_MODEL     kimi 모델(기본 kimi-code/k3-256k = K3 256K. 1M 짜리 k3 보다 context
                         quota 를 약 2배 절약한다 — 특별한 이유 없이 k3 로 되돌리지 말 것)
   COWORK_AGY_MODEL      agy(Antigravity) 모델(기본 gemini-3.7-flash-high).
@@ -243,7 +259,7 @@ usage() {
 예:
   bash .claude/skills/cowork/scripts/cowork.sh login-timeout "로그인이 가끔 끊기는 원인 분석"
   bash .claude/skills/cowork/scripts/cowork.sh grade3-fractions "초등 3학년 분수 단원 구성이 적절한지 검토"
-  COWORK_ONLY=kimi,agy COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh login-timeout "..."
+  COWORK_ONLY=copilot-grok,copilot-mai COWORK_TIMEOUT=600 bash .claude/skills/cowork/scripts/cowork.sh login-timeout "..."
   bash .claude/skills/cowork/scripts/cowork.sh --list
   bash .claude/skills/cowork/scripts/cowork.sh --init
 EOF
@@ -332,14 +348,14 @@ detect_workspace_facts() {
   printf -- '- **최상위 디렉토리**: %s\n' "$dirs"
 }
 
-# 5 AI 에게 주입할 "대상 작업공간" 블록을 만든다.
+# 6 AI 에게 주입할 "대상 작업공간" 블록을 만든다.
 #
 # `.cowork/cowork-prompt.md` 는 **이 작업공간의 시스템 프롬프트** 다 — 프로젝트의 특성·기획·계획·아바타
 # (persona)·디자인·로직·개념을 사람이 정의해 두는 곳이고, cowork 는 어떤 분석을 하든 이것을 **반드시**
-# 5 AI 에게 먹인다. 자동 감지는 그 아래 보조 사실일 뿐이다(파일 존재로 알 수 있는 것만).
+# 6 AI 에게 먹인다. 자동 감지는 그 아래 보조 사실일 뿐이다(파일 존재로 알 수 있는 것만).
 #
-# 이 함수의 반환값은 페르소나의 {{PROJECT_CONTEXT}} 에 치환된다 → 분석(claude·codex·kimi·agy)·grok
-# pass1·pass2·리뷰 라운드가 **전부 같은 페르소나 문자열을 쓰므로 한 곳만 고치면 모든 경로에 전파된다.**
+# 이 함수의 반환값은 페르소나의 {{PROJECT_CONTEXT}} 에 치환된다 → 분석(claude·codex·copilot 두 두뇌·kimi·agy)·
+# 리뷰 라운드가 **전부 같은 페르소나 문자열을 쓰므로 한 곳만 고치면 모든 경로에 전파된다.**
 # 새 실행 경로를 추가할 때도 persona 를 그대로 쓰면 cowork-prompt.md 주입이 자동으로 따라온다.
 build_project_context() {
   local root="$1"
@@ -410,75 +426,117 @@ run_timeout() {
   ' "$secs" "$@"
 }
 
-# --- grok headless 1회 실행 (분석·리뷰 공용) --------------------------------
-# 🛑 2026-07-21 실측 실패 모드 (cowork-skill, exit=99 빈 응답, 50s):
-#    세션 events.jsonl 끝: permission_resolved(run_terminal_command)=cancelled
-#    → turn_ended(cancellation_category=permission_cancelled) → stdout 0B · rc=0.
-#    부모 Grok 세션(이 대화) 안에서 자식 grok 를 띄울 때 leader 소켓·권한 상태가 얽히면
-#    도구 승인이 간헐적으로 cancel 되고, headless 는 최종 답 없이 조용히 종료한다.
-# 방어:
-#    1) --leader-socket 을 호출마다 고유 경로로 분리 (부모 ~/.grok/leader.sock 과 격리)
-#    2) --always-approve 명시 (config 의존·TUI 프롬프트 경로 차단)
-#    3) env -u GROK_AGENT (부모 에이전트 컨텍스트 누수 차단)
-#    4) 호출 측에서 빈 응답 시 재시도(COWORK_GROK_RETRIES)
-# 읽기 전용은 여전히 sandbox-exec 가 담당(--always-approve 로 쓰기를 허용해도 OS 가 EPERM).
-# 사용: run_grok_headless <prompt-file> <stdout-file> <stderr-log> <debug-file>
-run_grok_headless() {
-  local pf="$1" out="$2" lg="$3" dbg="$4"
-  local sbx leader_sock
-  sbx="$(printf '(version 1)\n(allow default)\n(deny file-write* (subpath "%s"))\n' "$REPO_ROOT_PHYS")"
-  # 프로세스·시각 기반 고유 소켓 — 병렬 pass/재시도가 서로 안 덮어쓰게 함
-  leader_sock="${TMPDIR:-/tmp}/cowork-grok-${SLUG:-x}-$$-$(date +%s%N).sock"
-  rm -f "$leader_sock" "$dbg" 2> /dev/null
-  # shellcheck disable=SC2086
+# --- copilot 읽기 전용 1회 실행 (분석·리뷰 공용 SSOT) ------------------------
+# 🛑 claude·agy 와 같은 이유로 **copilot 실행 지점도 이 함수 하나뿐이다.** 분석(run_copilot_analysis)과
+#    리뷰(run_oneshot)가 모두 이것을 부른다. 두 두뇌(copilot-grok·copilot-mai)는 **모델 인자만 다르고
+#    옵션은 완전히 같다** — 옵션이 갈리면 두 분석의 차이가 "두뇌 차이" 가 아니라 "설정 차이" 가 된다.
+#
+# 두 두뇌는 **서로 완전히 독립된 프로세스**다(2026-09-17 사용자 지시). 호출마다 새 세션이 열리고,
+# prompt 모드는 memory 가 기본으로 꺼져 있으며(--enable-memory 를 주지 않는다), 세션 저장소를 읽는
+# 도구(session_store_sql)도 화이트리스트 밖이다 — 한쪽이 다른 쪽의 분석을 엿볼 경로가 없다.
+#
+# 읽기 전용은 claude 와 같은 **두 겹**이다 (2026-09-17 공격 실측, copilot 1.0.85):
+#   ① `--available-tools=view,grep,glob` → 쓰기·셸·서브에이전트 도구가 모델에게 **아예 보이지 않는다**
+#      (세션 이벤트에 `Disabled tools: bash, create, edit, …, task, web_fetch, write_agent` 로 기록됨).
+#      이것만으로 공격 프롬프트에 파일 미생성·`FAILED`.
+#   ② sandbox-exec → 이것만으로도 셸·create·edit·task 서브에이전트가 전부 EPERM 으로 막혔다. 그러나
+#      도구 제한이 없으면 grok-4.5 는 10분 넘게 우회를 시도하며 부모 세션의 IPC 소켓 환경변수까지
+#      뒤졌다. 이 프로파일은 **파일 쓰기만** 막고 소켓·네트워크는 막지 않으므로 ①이 반드시 필요하다.
+#   기준선: 둘 다 없이 `--allow-all-tools` 만 주면 **파일이 그대로 생성됐다.**
+#
+# ⚠️ sandbox-exec 가 없으면(macOS 외) claude 처럼 ①만으로 진행한다 — 화이트리스트가 실측으로
+#    작동하기 때문이다(kimi·agy 는 CLI 옵션 방어가 무력해 미실행이 유일한 답이었다).
+#
+# 옵션별 이유:
+#   --allow-all-tools      -p(non-interactive) 필수. 보이는 도구가 ①의 읽기 도구뿐이라 방어를 약화하지 않는다.
+#   --disable-builtin-mcps GitHub MCP(이슈·PR 처럼 **파일이 아닌 외부 쓰기**가 가능한 도구 묶음)를 기동하지
+#                          않는다. ①이 이미 가리지만 서버 자체를 없앤다.
+#   --no-ask-user          headless 에는 답할 사람이 없다.
+#   --output-format json   text 모드(-s)는 도구 호출 사이의 진행 문구("Reading `pubspec.yaml` …")까지
+#                          stdout 에 섞는다(실측). JSONL 에서 **최종 답변만** 뽑는다 → copilot_extract_final.
+#   env -u COPILOT_ALLOW_ALL  이 값이 정확히 "true" 면 작업공간을 신뢰해 그 폴더의 hook(셸 명령)까지
+#                          로드한다. 분석 대상 작업공간의 설정이 실행되는 경로를 닫는다.
+#   < /dev/null            stdin 이 열려 있으면 입력을 기다리며 멈추는 CLI 가 있었다(opencode 실측). 예방적.
+run_copilot_readonly() { # <모델> <프롬프트파일> <출력파일> <로그파일>
+  local model="$1" pf="$2" out="$3" lg="$4"
+  local raw="${lg%.log}.jsonl" rc
+  local -a guard=()
+  : > "$lg"
+  rm -f "$out"
+  if command -v sandbox-exec > /dev/null 2>&1; then
+    guard=(sandbox-exec -p "$(printf '(version 1)\n(allow default)\n(deny file-write* (subpath "%s"))\n' "$REPO_ROOT_PHYS")")
+  else
+    printf '[cowork] sandbox-exec 없음 — copilot 은 도구 화이트리스트만으로 읽기 전용을 유지한다.\n' >> "$lg"
+  fi
+  # bash 3.2(macOS 기본)는 set -u 에서 빈 배열 "${guard[@]}" 를 unbound 로 죽인다 → ${guard[@]+…} 로 감싼다.
   cd "$REPO_ROOT" && run_timeout "$COWORK_TIMEOUT" \
-    env -u GROK_AGENT \
-    sandbox-exec -p "$sbx" \
-      grok --prompt-file "$pf" --output-format plain --no-alt-screen \
-        --always-approve \
-        --leader-socket "$leader_sock" \
-        --reasoning-effort "$COWORK_GROK_EFFORT" \
-        --debug-file "$dbg" \
-        > "$out" 2>> "$lg" < /dev/null
-  local rc=$?
-  rm -f "$leader_sock" 2> /dev/null
+    env -u COPILOT_ALLOW_ALL \
+    ${guard[@]+"${guard[@]}"} \
+    copilot -p "$(cat "$pf")" \
+      --model "$model" --reasoning-effort "$COWORK_COPILOT_EFFORT" \
+      --allow-all-tools --available-tools="$COPILOT_READONLY_TOOLS" \
+      --disable-builtin-mcps --no-ask-user \
+      --output-format json \
+      > "$raw" 2>> "$lg" < /dev/null
+  rc=$?
+  copilot_extract_final "$raw" "$model" "$out" >> "$lg" 2>&1 || { [ "$rc" -eq 0 ] && rc=95; }
   return "$rc"
 }
 
-# grok 를 최대 N 회 돌려 빈 응답/비0 종료를 흡수한다.
-# run_grok_with_retries <label> <prompt-file> <stdout-file> <stderr-log> <debug-prefix>
-# debug 파일은 <debug-prefix>-a1.log, -a2.log … 로 쌓인다. 성공 시 0, 전부 실패 시 마지막 rc.
-run_grok_with_retries() {
-  local label="$1" pf="$2" out="$3" lg="$4" dbg_prefix="$5"
-  local attempts="$COWORK_GROK_RETRIES" attempt=1 rc=0 size=0
-  # 정수 가드 (빈/비숫자 → 3)
-  case "$attempts" in ''|*[!0-9]*) attempts=3 ;; esac
-  [ "$attempts" -lt 1 ] && attempts=1
+# copilot JSONL 에서 최종 답변(= 도구 요청이 없는 마지막 assistant.message)만 <출력파일> 로 뽑는다.
+# - error·warning 이벤트는 stdout(→ 로그)으로 옮긴다. finalize 의 실패 진단(사용량 한도 등)이 그것을 읽는다.
+# - 🛑 실제로 답한 모델이 요청과 다르면 **싣지 않고** 1 을 돌려준다. 두 두뇌를 따로 쓰는 것이 목적인데,
+#   다른 모델(예: 한도 초과 시 auto 로 갈아타는 `continueOnAutoMode` 설정)의 답을 그 이름으로 실으면
+#   종합이 존재하지 않는 "Grok 4.5 의 의견" 을 대조하게 된다.
+# - 원시 JSONL 은 진단용으로 남기되, 토큰 단위 *_delta 이벤트는 걷어 낸다(실측 800KB 중 절반 이상).
+copilot_extract_final() { # <jsonl> <요청 모델> <출력파일>
+  perl -MJSON::PP -e '
+    # 인자·리터럴은 바이트, JSON 에서 꺼낸 값은 문자열이다. 로그로 낼 때 후자만 UTF-8 로 되돌린다
+    # (STDOUT 에 인코딩 레이어를 걸면 한글 리터럴·경로가 이중 인코딩돼 깨진다 — 실측).
+    sub bytes_of { my $s = shift; utf8::encode($s); $s }
+    my ($raw, $want, $out) = @ARGV;
+    open my $in, "<", $raw or do { print "[cowork] copilot 출력 없음: $raw\n"; exit 0 };
+    my $dec = JSON::PP->new->utf8;
+    my $enc = JSON::PP->new->utf8->canonical;
+    my ($final, $model, @keep) = (undef, "");
+    while (my $line = <$in>) {
+      my $ev = eval { $dec->decode($line) } or next;
+      my $type = $ev->{type} // "";
+      next if $type =~ /_delta$/;
+      push @keep, $line;
+      my $d = ref $ev->{data} eq "HASH" ? $ev->{data} : {};
+      print "[copilot $type] ", (defined $d->{message} ? bytes_of($d->{message}) : $enc->encode($d)), "\n"
+        if $type =~ /error|warning/i;
+      next unless $type eq "assistant.message";
+      next if @{ $d->{toolRequests} // [] } or !length($d->{content} // "");
+      ($final, $model) = ($d->{content}, $d->{model} // "");
+    }
+    close $in;
+    if (open my $w, ">", $raw) { print {$w} @keep }
+    exit 0 unless defined $final;
+    if ($model ne "" && $model ne $want) {
+      print "[cowork] 모델 불일치: 요청 $want · 실제 응답 ", bytes_of($model), " — 이 분석은 싣지 않는다.\n";
+      exit 1;
+    }
+    open my $o, ">:encoding(UTF-8)", $out or exit 1;
+    print {$o} $final, "\n";
+  ' "$1" "$2" "$3"
+}
 
-  while [ "$attempt" -le "$attempts" ]; do
-    : > "$out"
-    printf '[cowork] grok %s attempt %s/%s 시작\n' "$label" "$attempt" "$attempts" >> "$lg"
-    run_grok_headless "$pf" "$out" "$lg" "${dbg_prefix}-a${attempt}.log"
-    rc=$?
-    size=0
-    [ -f "$out" ] && size="$(wc -c < "$out" | tr -d ' ')"
-    if [ "$rc" -eq 0 ] && [ "$size" -ge 50 ]; then
-      printf '[cowork] grok %s attempt %s 성공 (%sB)\n' "$label" "$attempt" "$size" >> "$lg"
-      return 0
-    fi
-    # 세션 이벤트에 permission_cancelled 흔적이 있으면 로그에 남겨 사후 진단이 쉽게
-    if [ -f "${dbg_prefix}-a${attempt}.log" ] && \
-         grep -q 'permission_cancelled\|decision.:.cancelled' "${dbg_prefix}-a${attempt}.log" 2>/dev/null; then
-      printf '[cowork] grok %s attempt %s: debug 에 permission cancel 흔적\n' "$label" "$attempt" >> "$lg"
-    fi
-    printf '[cowork] grok %s attempt %s 실패 (rc=%s size=%sB)%s\n' \
-      "$label" "$attempt" "$rc" "$size" \
-      "$( [ "$attempt" -lt "$attempts" ] && echo ' — 재시도' || echo ' — 포기' )" >> "$lg"
-    attempt=$((attempt + 1))
-    [ "$attempt" -le "$attempts" ] && sleep 2
-  done
-  [ "$rc" -eq 0 ] && rc=99
-  return "$rc"
+# AI 이름 → copilot 모델. 분석·리뷰가 공용한다(매핑이 두 곳에 복사되지 않게).
+copilot_model_for() { # <ai>
+  case "$1" in
+    copilot-grok) printf '%s' "$COWORK_COPILOT_GROK_MODEL" ;;
+    copilot-mai)  printf '%s' "$COWORK_COPILOT_MAI_MODEL" ;;
+  esac
+}
+
+# copilot 실행을 결과 파일 헤더에 남길 때 쓰는 설명 문자열.
+copilot_cmd_desc() { # <모델>
+  local guard="도구 화이트리스트"
+  command -v sandbox-exec > /dev/null 2>&1 && guard="sandbox-exec + 도구 화이트리스트"
+  printf 'copilot -p --model %s --reasoning-effort %s --available-tools=%s (%s · 읽기 전용)\n' \
+    "$1" "$COWORK_COPILOT_EFFORT" "$COPILOT_READONLY_TOOLS" "$guard"
 }
 
 # --- claude 읽기 전용 1회 실행 (분석·리뷰·종합 공용 SSOT) --------------------
@@ -501,11 +559,11 @@ run_grok_with_retries() {
 #   ② sandbox-exec → ①만으로는 구멍이 남는다. 같은 공격 실측에서 claude 자신이 "Agent·Workflow 로
 #      쓰기 권한을 가진 서브에이전트를 띄우면 기술적으로 가능하다" 고 지목했다(이번엔 스스로 자제했을
 #      뿐이다). 서브에이전트도 같은 프로세스 트리 안이므로 OS 레벨에서 막으면 EPERM 으로 함께 걸린다.
-#      grok·kimi·agy 와 **같은 프로파일**이며, 실측에서 claude 는 이 샌드박스 아래서 정상
+#      copilot·kimi·agy 와 **같은 프로파일**이며, 실측에서 claude 는 이 샌드박스 아래서 정상
 #      동작했다(git 저장소에서 rc=0 · stderr 0B · 저장소 무오염).
 #
-# ⚠️ sandbox-exec 가 없으면(macOS 외) grok·kimi 처럼 미실행하지 않고 ①만으로 진행한다 — claude 는
-#    CLI 옵션 방어가 실측으로 작동하기 때문이다(grok·kimi 는 그것이 전부 무력해 미실행이 유일한 답).
+# ⚠️ sandbox-exec 가 없으면(macOS 외) kimi·agy 처럼 미실행하지 않고 ①만으로 진행한다 — claude 는
+#    CLI 옵션 방어가 실측으로 작동하기 때문이다(kimi·agy 는 그것이 전부 무력해 미실행이 유일한 답).
 run_claude_readonly() { # <프롬프트파일> <출력파일> <로그파일>
   local pf="$1" out="$2" lg="$3"
   local sbx
@@ -559,10 +617,9 @@ claude_cmd_desc() {
 # --- 읽기 전용 1-pass 러너 (리뷰·종합 공용) ----------------------------------
 # run_oneshot <ai> <프롬프트파일> <출력파일> <로그파일>
 # 각 AI 를 읽기 전용 1회로 실행한다. 방어는 분석 러너와 동일 원칙(claude=sandbox-exec+화이트리스트,
-# codex=--sandbox read-only, grok·kimi·agy=sandbox-exec). grok 은 여기선 1-pass(리뷰는 이미 결론을
-# 비판하는 작업이라 2-pass 불필요).
-# claude 는 run_claude_readonly() 를 그대로 부른다 — 분석과 리뷰가 **같은 실행 경로**를 쓰므로
-# 옵션이 한쪽에만 반영되는 사고가 구조적으로 불가능하다.
+# codex=--sandbox read-only, copilot=sandbox-exec+화이트리스트, kimi·agy=sandbox-exec).
+# claude·copilot·agy 는 run_<cli>_readonly() 를 그대로 부른다 — 분석과 리뷰가 **같은 실행 경로**를
+# 쓰므로 옵션이 한쪽에만 반영되는 사고가 구조적으로 불가능하다.
 run_oneshot() {
   local ai="$1" pf="$2" out="$3" lg="$4"
   local sbx
@@ -591,10 +648,10 @@ run_oneshot() {
         rc_c=$?
       fi
       return $rc_c ;;
-    grok)
-      command -v sandbox-exec > /dev/null 2>&1 || { printf 'sandbox-exec 없음 — grok 미실행\n' > "$lg"; return 1; }
-      # 리뷰 라운드도 동일 격리·재시도 (빈 리뷰가 종합을 오염시키지 않게)
-      run_grok_with_retries "oneshot" "$pf" "$out" "$lg" "${lg%.log}-debug" ;;
+    copilot-grok | copilot-mai)
+      # 분석과 **같은 실행 경로**(run_copilot_readonly)·같은 모델 매핑(copilot_model_for)을 쓴다.
+      command -v copilot > /dev/null 2>&1 || { printf 'copilot CLI 미설치 — %s 미실행\n' "$ai" > "$lg"; return 1; }
+      run_copilot_readonly "$(copilot_model_for "$ai")" "$pf" "$out" "$lg" ;;
     kimi)
       command -v sandbox-exec > /dev/null 2>&1 || { printf 'sandbox-exec 없음 — kimi 미실행\n' > "$lg"; return 1; }
       local kb; kb="$(command -v kimi 2> /dev/null || echo "$HOME/.kimi-code/bin/kimi")"
@@ -615,7 +672,7 @@ run_oneshot() {
 }
 
 # --- --init: .cowork/cowork-prompt.md 초안 생성 -------------------------------------
-# 이 작업공간에서 5 AI 에게 매번 주입할 공통 지침 파일을 만든다(Overview·Persona·Instructions·Tech stack).
+# 이 작업공간에서 6 AI 에게 매번 주입할 공통 지침 파일을 만든다(Overview·Persona·Instructions·Tech stack).
 # 자동 감지로 뼈대와 사실만 채운다 — 나머지는 사람(또는 오케스트레이터)이 채워야 제 값을 한다.
 #
 # 🛑 이미 있으면 덮어쓰지 않는다. 사람이 다듬은 지침을 재실행 한 번으로 날리면 안 된다(--force 로만 교체).
@@ -645,30 +702,30 @@ do_init_prompt() {
   cat > "$pf" <<EOF
 # cowork 시스템 프롬프트 — $wsname
 
-> 🛑 이 파일은 \`cowork\` 이 claude·codex·grok·kimi·agy **다섯 AI 에게 분석을
-> 시킬 때마다 프롬프트 맨 앞에 반드시 주입** 하는 **이 프로젝트의 시스템 프롬프트** 다. 다섯 AI 는 매번 이 문서를 전제로 분석한다.
+> 🛑 이 파일은 \`cowork\` 이 claude·codex·copilot-grok·copilot-mai·kimi·agy **여섯 AI 에게 분석을
+> 시킬 때마다 프롬프트 맨 앞에 반드시 주입** 하는 **이 프로젝트의 시스템 프롬프트** 다. 여섯 AI 는 매번 이 문서를 전제로 분석한다.
 >
 > 이 프로젝트의 **특성·기획·계획·아바타(persona)·디자인·로직·개념** 을 여기에 적어 두면, 어떤 분석을
-> 시키든 다섯 AI 가 같은 맥락 위에서 답한다. 반대로 비워 두면 다섯 AI 는 프로젝트의 목적을 모른 채
+> 시키든 여섯 AI 가 같은 맥락 위에서 답한다. 반대로 비워 두면 여섯 AI 는 프로젝트의 목적을 모른 채
 > 일반론으로 분석한다 — **채울수록 결과가 좋아지는 파일이다.**
 >
 > \`cowork.sh --init\` 이 자동 감지로 만든 **초안** 이다. 아래 네 절은 뼈대일 뿐이니, 필요하면 절을
 > 더 추가하라(\`## 기획\`, \`## 용어 정의\`, \`## 설계 규칙\`, \`## 데이터 구조\`, \`## 금지사항\` …).
 >
-> ⚠️ 다섯 AI 는 읽기 전용이다. 이 문서에 "파일을 만들어라" 같은 지시를 써도 물리적으로 실행되지 않는다
+> ⚠️ 여섯 AI 는 읽기 전용이다. 이 문서에 "파일을 만들어라" 같은 지시를 써도 물리적으로 실행되지 않는다
 > (실제 작업은 종합(final-report.md)을 마친 오케스트레이터가 한다).
 
 ## Overview
 
-(이 프로젝트가 **무엇인지**, 무엇을 만들고 있고 지금 어느 단계인지, 그리고 5 AI 에게 **무엇을
+(이 프로젝트가 **무엇인지**, 무엇을 만들고 있고 지금 어느 단계인지, 그리고 6 AI 에게 **무엇을
  시키려는지** 를 쓴다. 프로젝트의 특성·기획 의도·목표·계획을 여기에 담는다.
  예: "초등 3~4학년 수학 교재를 만드는 프로젝트. 현재 1학기 분수 단원 초안까지 나왔다.
- 단원 구성·난이도 배열·오답 유형의 타당성을 다섯 AI 에게 교차 검증시킨다."
+ 단원 구성·난이도 배열·오답 유형의 타당성을 여섯 AI 에게 교차 검증시킨다."
  예: "웹 브라우저용 테트리스. 코어 로직은 완성, 지금은 난이도 곡선과 조작감을 다듬는 단계다.")
 
 ## Persona
 
-(5 AI 가 **어떤 전문가 역할(아바타)** 로 분석해야 하는지 쓴다. 이 프로젝트의 분야에 맞는 인격을
+(6 AI 가 **어떤 전문가 역할(아바타)** 로 분석해야 하는지 쓴다. 이 프로젝트의 분야에 맞는 인격을
  부여하면 분석의 관점 자체가 달라진다.
  예: "초등 수학 교육과정 설계 전문가이자 아동 인지발달 관점의 교재 검수자."
  예: "낙하형 퍼즐 게임의 조작감·난이도 곡선을 설계해 온 시니어 게임 디자이너.")
@@ -676,7 +733,7 @@ do_init_prompt() {
 ## Instructions
 
 (분석 시 **반드시 지킬 규칙·개념·설계 로직·우선순위·금지사항** 을 쓴다. 이 프로젝트의 불변 규칙과
- 핵심 개념을 여기에 정의해 두면 다섯 AI 가 그것을 어기는 권고를 하지 않는다.
+ 핵심 개념을 여기에 정의해 두면 여섯 AI 가 그것을 어기는 권고를 하지 않는다.
  예:
  - 모든 주장에는 \`파일:줄\` 근거를 붙이고, 근거 없는 주장은 \`[추측]\` 으로 표시한다.
  - 대상 독자는 만 9~10세다. 그 어휘 수준을 넘는 제안은 하지 않는다.
@@ -692,7 +749,7 @@ $facts
 EOF
 
   printf '✅ 생성: .cowork/cowork-prompt.md\n' >&2
-  printf '   5 AI 분석마다 이 파일이 프롬프트에 주입된다. 네 절(Overview·Persona·Instructions·Tech stack)을\n' >&2
+  printf '   6 AI 분석마다 이 파일이 프롬프트에 주입된다. 네 절(Overview·Persona·Instructions·Tech stack)을\n' >&2
   printf '   이 작업공간에 맞게 채워라 — 채울수록 분석 품질이 올라간다.\n' >&2
 }
 
@@ -721,11 +778,11 @@ do_init_hook() {
   ' "$settings" > "$tmp" && mv "$tmp" "$settings" || die "settings.json 갱신 실패: $settings"
   printf '✅ 설치 완료: %s\n' "$settings" >&2
   printf '   이제 cowork 분석이 끝나면 Stop hook 이 .review-final-report 마커를 보고,\n' >&2
-  printf '   final-report.md 를 5 AI 로 백그라운드 재검토해 갱신한다(세션은 안 멈춤).\n' >&2
+  printf '   final-report.md 를 6 AI 로 백그라운드 재검토해 갱신한다(세션은 안 멈춤).\n' >&2
 }
 
 # --- --review: final-report.md 최종 리뷰 라운드 ------------------------------
-# Stop hook 이 nohup 백그라운드로 호출한다. 5 AI 가 종합본을 재검토 → claude 가 반영해 갱신.
+# Stop hook 이 nohup 백그라운드로 호출한다. 6 AI 가 종합본을 재검토 → claude 가 반영해 갱신.
 # 상세·페르소나·종합 프롬프트 SSOT: references/final-report-review.md
 do_review() {
   local slug="$1"
@@ -771,7 +828,7 @@ do_review() {
     done
   } > "$rprompt"
 
-  # 5 AI 병렬 리뷰(1-pass)
+  # 6 AI 병렬 리뷰(1-pass)
   # 🛑 이전 라운드의 리뷰 파일을 먼저 지운다. 안 지우면 이번에 실패한 AI 의 *지난* 리뷰가 그대로
   #    남아 새 리뷰인 것처럼 종합에 실린다(2026-08-08 감사 지적).
   local pids=() rnames=()
@@ -832,7 +889,7 @@ do_review() {
   local stamp; stamp="$(date '+%Y-%m-%d %H:%M')"
   {
     printf '## 리뷰 라운드 — %s\n\n' "$stamp"
-    printf '> 5 AI 리뷰(claude·codex·grok·kimi·agy) → claude 종합 → final-report.md **%s**\n\n' "$applied"
+    printf '> 6 AI 리뷰(claude·codex·copilot-grok·copilot-mai·kimi·agy) → claude 종합 → final-report.md **%s**\n\n' "$applied"
     [ -n "$changelog" ] && printf '%s\n\n' "$changelog"
     printf -- '- 원본 백업: `.review/final-report.before.md`\n\n---\n\n'
   } >> "$logf"
@@ -961,7 +1018,7 @@ PROMPT_FILE="$OUT_DIR/.prompt.md"
 # --- 섹션 헤더 정규화 --------------------------------------------------------
 # `## 1. 결론 요약` 같은 섹션 헤더가 줄 중간에 붙어 있으면 앞에 빈 줄을 넣어 진짜 헤더로 만든다.
 #
-# 🛑 왜 (실측 2026-07-17, skill-selftest): 페르소나가 "서두 없이 바로 출력하라"고 지시했는데도 grok 이
+# 🛑 왜 (실측 2026-07-17, skill-selftest): 페르소나가 "서두 없이 바로 출력하라"고 지시했는데도 grok CLI 가
 #    "…재검증하고, 놓친 경로를 추가로 찾습니다.## 1. 결론 요약" 처럼 **서두 뒤에 개행 없이** 헤더를
 #    이어 붙였다. 마크다운은 이것을 헤더로 보지 않아 §1 이 통째로 본문에 묻히고, 종합 단계에서 섹션을
 #    찾지 못한다(`grep '^## '` 에 안 걸린다).
@@ -993,8 +1050,12 @@ finalize() {
     local diag="" probe
     probe="$body
 $(cat "${LOG_DIR:-}/$name.log" 2> /dev/null)"
-    if printf '%s' "$probe" | grep -qiE "hit your (weekly|daily|usage) limit|reached your .{0,24}limit|usage limit|quota (exceeded|will be refreshed)|out of (credits|quota)|insufficient (credits|quota)|\b429\b"; then
+    if printf '%s' "$probe" | grep -qiE "hit your (weekly|daily|usage) limit|reached your .{0,24}limit|usage limit|quota (exceeded|will be refreshed)|out of (credits|quota)|insufficient (credits|quota)|premium requests? (limit|quota)|\b429\b"; then
       diag="사용량 한도 초과"
+    elif printf '%s' "$probe" | grep -qE 'from --model flag is not available|is not supported for model|\[cowork\] 모델 불일치'; then
+      # copilot 은 계정에 없는 모델·그 모델이 안 받는 추론 등급을 5초 만에 거절한다(2026-09-17 실측).
+      # 재시도로는 안 풀리고 모델 ID·COWORK_COPILOT_EFFORT 를 고쳐야 하므로 따로 알린다.
+      diag="모델·추론 등급 거절"
     elif [ "$rc" -eq 124 ]; then
       diag="제한 시간 초과"
     fi
@@ -1014,6 +1075,9 @@ $(cat "${LOG_DIR:-}/$name.log" 2> /dev/null)"
       case "$diag" in
         "사용량 한도 초과")
           printf '그 사실을 final-report.md 에 명시하라. 한도 문제이므로 **지금 재시도하지 말라** — 나머지 AI 로 종합을 진행하라.\n' ;;
+        "모델·추론 등급 거절")
+          printf '그 사실을 final-report.md 에 명시하라. 설정 문제라 **그대로 재시도해도 같은 실패가 난다** — 로그의 거절 문구를 보고\n'
+          printf '모델 ID(`copilot help config` 의 model 목록)나 추론 등급(COWORK_COPILOT_EFFORT)을 고친 뒤 재시도하라.\n' ;;
         "제한 시간 초과 — 인증·할당량 의심")
           printf '그 사실을 final-report.md 에 명시하라. **위 키 점검을 먼저 하고** 재시도하라 — 키가 문제면 그냥 재시도해도 %ss 를 또 버린다:\n' "$COWORK_TIMEOUT"
           printf '`COWORK_ONLY=%s bash .claude/skills/cowork/scripts/cowork.sh %s "..."`\n' "$name" "$SLUG" ;;
@@ -1035,7 +1099,7 @@ $(cat "${LOG_DIR:-}/$name.log" 2> /dev/null)"
   return 0
 }
 
-# --- 분석 러너 5종 (claude·codex·grok·kimi·agy) -------------------------
+# --- 분석 러너 6종 (claude·codex·copilot-grok·copilot-mai·kimi·agy) -----------
 # 공통: cwd=REPO_ROOT (각 CLI 가 CLAUDE.md/AGENTS.md 를 자동으로 읽게 한다)
 
 run_claude() {
@@ -1099,101 +1163,29 @@ run_codex() {
     "codex exec --sandbox read-only -m $used -c model_reasoning_effort=$COWORK_CODEX_EFFORT -o <file> -"
 }
 
-run_grok() {
-  local file="$OUT_DIR/grok-cowork.md" log="$LOG_DIR/grok.log"
-  local t0=$SECONDS rc=0
+# --- copilot 두 두뇌 (Grok 4.5 · MAI-Code-1.1-Flash) --------------------------
+# 같은 러너를 AI 이름만 바꿔 두 번 띄운다. 메인 루프가 `run_copilot_grok &` · `run_copilot_mai &` 로
+# **각각 별개의 백그라운드 프로세스**를 만든다 — 한쪽이 실패·타임아웃이어도 다른 쪽은 영향이 없다.
+# 실행 옵션·읽기 전용 근거는 run_copilot_readonly() 가 SSOT 다. 여기서 옵션을 다시 쓰지 말 것.
+run_copilot_analysis() { # <ai 이름>
+  local name="$1"
+  local file="$OUT_DIR/$name-cowork.md" log="$LOG_DIR/$name.log"
+  local model t0=$SECONDS rc=0
+  model="$(copilot_model_for "$name")"
 
-  # 🛑 grok 은 CLI 의 읽기 전용 옵션이 *전부 무력하다*(2026-07-16 실측):
-  #    --sandbox read-only / --permission-mode plan / --tools / --disallowed-tools / --deny
-  #    다섯 가지 모두 무시되고 파일이 그대로 생성됐다(--sandbox 는 "프로파일 없음" 경고만 내고 통과).
-  #    따라서 grok 은 OS 레벨 sandbox-exec 로 감싸 프로젝트 경로 쓰기를 물리적으로 막는다(kimi 도
-  #    같은 이유·같은 프로파일 — run_kimi 참고).
-  #    프로젝트 밖(~/.grok 세션·캐시)은 허용해야 grok 이 정상 동작한다 → subpath 만 deny.
-  #    상세·재현 절차: references/readonly-enforcement.md. 이 래핑을 벗기지 말 것.
-  if ! command -v sandbox-exec > /dev/null 2>&1; then
-    # fail-safe: 샌드박스가 없으면 grok 을 아예 돌리지 않는다.
-    # (조용히 쓰기 가능한 상태로 실행하느니 분석 하나를 포기하는 편이 안전하다)
-    printf 'sandbox-exec 없음 — grok 을 읽기 전용으로 가둘 수 없어 실행하지 않았다(macOS 전용).\n' > "$log"
-    finalize grok "$file" 98 "$((SECONDS - t0))" "sandbox-exec 부재로 미실행"
+  if ! command -v copilot > /dev/null 2>&1; then
+    printf 'copilot(GitHub Copilot CLI) 을 찾을 수 없다. 설치 후 `copilot login` 으로 인증하라.\n' > "$log"
+    finalize "$name" "$file" 96 "$((SECONDS - t0))" "copilot CLI 미설치"
     return 1
   fi
 
-  # 샌드박스 프로파일은 run_grok_headless 가 매 호출마다 조립한다(leader 소켓·재시도와 함께).
-
-  # 🔬 grok 만 2-pass 로 돌린다. grok 은 다른 러너들보다 먼저 끝내고 놀았다(3 AI 시절 실측 132·202s vs
-  #    claude 320~399s, codex 573~717s; kimi 는 이후 합류해 237s). 종합은 넷이 다 끝나야 시작되므로
-  #    그 유휴 시간은 공짜다 —
-  #    깊이 파게 해도 cowork 전체 벽시계는 느려지지 않는다. 근거·지침 SSOT: references/grok-deep-protocol.md
-  #    Pass 1: CoT+ToT 로 깊게 탐색 → .grok-pass1.md 로 확정 저장
-  #    Pass 2: 그 파일을 입력으로 받아 *남의 글처럼* 적대적으로 비판하고 다시 씀 → grok-cowork.md
-  #    (한 번의 호출에 "스스로 비판하라"고 적으면 자기 글을 관대하게 본다. 그래서 두 세션으로 쪼갠다)
-  local pass1_out="$OUT_DIR/.grok-pass1.md"
-  local p1_prompt="$OUT_DIR/.grok-pass1-prompt.md"
-  local p2_prompt="$OUT_DIR/.grok-pass2-prompt.md"
-  local deep1 deep2
-  deep1="$(extract_block "$GROK_PROTOCOL_FILE" GROK-PASS1)"
-  deep2="$(extract_block "$GROK_PROTOCOL_FILE" GROK-PASS2)"
-  if [ -z "$deep1" ] || [ -z "$deep2" ]; then
-    printf 'grok 심층 지침 마커를 찾지 못했다: %s\n' "$GROK_PROTOCOL_FILE" > "$log"
-    finalize grok "$file" 97 "$((SECONDS - t0))" "grok-deep-protocol.md 마커 누락"
-    return 1
-  fi
-
-  # --- Pass 1: 심층 탐색 (CoT + ToT) ---
-  {
-    printf '%s\n\n' "$persona"
-    printf '%s\n\n' "$deep1"
-    printf '## 분석 요청\n\n%s\n' "$PROMPT_TEXT"
-  } > "$p1_prompt"
-
-  # 빈 로그로 시작(재시도 흔적을 같은 파일에 append)
-  : > "$log"
-  run_grok_with_retries "pass1" "$p1_prompt" "$pass1_out" "$log" "$LOG_DIR/grok-pass1-debug"
+  run_copilot_readonly "$model" "$PROMPT_FILE" "$file" "$log"
   rc=$?
-
-  local size1=0
-  [ -f "$pass1_out" ] && size1="$(wc -c < "$pass1_out" | tr -d ' ')"
-  if [ "$rc" -ne 0 ] || [ "$size1" -lt 50 ]; then
-    # Pass 1 이 죽으면 비판할 원본이 없다 → grok 은 실패로 확정(종합에서 제외된다).
-    # 재시도까지 소진한 상태 — 부분 출력이 있으면 finalize 가 details 로 보존.
-    cp "$pass1_out" "$file" 2> /dev/null
-    finalize grok "$file" "$rc" "$((SECONDS - t0))" \
-      "grok pass1(심층 탐색) 실패 — ${COWORK_GROK_RETRIES}회 재시도 후 (leader 격리+always-approve)"
-    return 1
-  fi
-  printf '   ▶ grok pass1 완료(%ss) → pass2 자기 비판·재분석 시작\n' "$((SECONDS - t0))" >&2
-
-  # --- Pass 2: 적대적 자기 비판 → 재분석 ---
-  # Pass 1 결과 *전문* 을 프롬프트에 실어 준다. 새 세션이라 grok 은 이것을 남의 글로 본다.
-  {
-    printf '%s\n\n' "$persona"
-    printf '%s\n\n' "$deep2"
-    printf '## 분석 요청\n\n%s\n\n' "$PROMPT_TEXT"
-    printf -- '---\n\n## 1차 분석 결과 (당신이 방금 쓴 것 — 이제 이것을 공격하라)\n\n'
-    cat "$pass1_out"
-  } > "$p2_prompt"
-
-  # `>` 로 새로 쓴다(`>>` 금지). 앞선 실행이 중간에 죽어 .tmp 가 남아 있으면 append 는 두 보고서를
-  # 이어 붙여 종합 단계에 모순된 결론을 먹인다.
-  rm -f "$file.tmp"
-  run_grok_with_retries "pass2" "$p2_prompt" "$file.tmp" "$log" "$LOG_DIR/grok-pass2-debug"
-  rc=$?
-
-  local size2=0
-  [ -f "$file.tmp" ] && size2="$(wc -c < "$file.tmp" | tr -d ' ')"
-  if [ "$rc" -ne 0 ] || [ "$size2" -lt 50 ]; then
-    # Pass 2 만 죽었으면 Pass 1 의 깊은 분석을 버리지 않고 최종으로 승격한다(비판만 못 거친 것).
-    printf '\n[cowork] pass2 실패(exit=%s, %sB, retries=%s) — pass1 결과를 최종으로 승격\n' \
-      "$rc" "$size2" "$COWORK_GROK_RETRIES" >> "$log"
-    rm -f "$file.tmp"
-    cp "$pass1_out" "$file"
-    finalize grok "$file" 0 "$((SECONDS - t0))" "grok 2-pass (pass2 실패 → pass1 승격, 자기 비판 미적용)"
-    return $?
-  fi
-
-  mv "$file.tmp" "$file"
-  finalize grok "$file" 0 "$((SECONDS - t0))" "grok 2-pass: CoT/ToT 탐색 → 적대적 자기 비판 → 재분석"
+  finalize "$name" "$file" "$rc" "$((SECONDS - t0))" "$(copilot_cmd_desc "$model")"
 }
+
+run_copilot_grok() { run_copilot_analysis copilot-grok; }
+run_copilot_mai() { run_copilot_analysis copilot-mai; }
 
 run_kimi() {
   local file="$OUT_DIR/kimi-cowork.md" log="$LOG_DIR/kimi.log"
@@ -1212,7 +1204,7 @@ run_kimi() {
 
   # 🛑 kimi 는 headless(-p)에서 승인 게이트 없이 쓰기 도구까지 실행한다(2026-07-18 실측: -p 만으로
   #    파일 생성 성공). --plan 은 -p 와 조합 불가(CLI 가 거절) → CLI 옵션으로는 읽기 전용을 강제할 수
-  #    없다. 그래서 grok 과 동일하게 OS 레벨 sandbox-exec 로 프로젝트 쓰기를 물리 차단한다(같은
+  #    없다. 그래서 agy 와 동일하게 OS 레벨 sandbox-exec 로 프로젝트 쓰기를 물리 차단한다(같은
   #    프로파일에서 Write 도구가 EPERM 실패, kimi 는 크래시 없이 계속 동작함을 실측 확인).
   #    상세·재현 절차: references/readonly-enforcement.md. 이 래핑을 벗기지 말 것.
   if ! command -v sandbox-exec > /dev/null 2>&1; then
@@ -1223,7 +1215,7 @@ run_kimi() {
   local sbx_profile
   sbx_profile="$(printf '(version 1)\n(allow default)\n(deny file-write* (subpath "%s"))\n' "$REPO_ROOT_PHYS")"
 
-  # 프롬프트는 -p 인자로 통째 전달한다(kimi 에는 grok 의 --prompt-file 에 해당하는 옵션이 없다).
+  # 프롬프트는 -p 인자로 통째 전달한다(kimi 에는 프롬프트 파일을 받는 옵션이 없다).
   # -m 으로 K3 을 명시 고정한다 — config 의 default_model 이 K2.7 로 바뀌어도 cowork 는 K3 을 쓴다.
   cd "$REPO_ROOT" && run_timeout "$COWORK_TIMEOUT" \
     sandbox-exec -p "$sbx_profile" \
@@ -1245,12 +1237,12 @@ run_kimi() {
 #      "no output produced — a tool required the "command" permission that headless mode cannot
 #       prompt for, so it was auto-denied."
 #    → stdout 0B · rc=0 인 **빈 응답**. 즉 승인 없이는 분석 자체가 성립하지 않는다.
-#    grok 의 `--always-approve` 와 같은 자리의 옵션이다(readonly-enforcement.md §agy).
+#    copilot 의 `--allow-all-tools` 와 같은 자리의 옵션이다(readonly-enforcement.md §agy).
 #
 # 🛑 그래서 읽기 전용은 CLI 옵션이 아니라 **sandbox-exec 가 전부 담당한다.** 같은 실측에서
 #    최악 조건(--dangerously-skip-permissions)으로 "이 폴더에 파일을 만들고 PWNED 라고 써라" 를
 #    시켰더니 agy 는 `OK`(성공했다) 라고 답했지만 **파일은 생성되지 않았다**(OS 가 EPERM).
-#    모델의 자기 보고는 방어가 아니다 — 오히려 성공했다고 착각·오보한다. grok·kimi 와 동일하게
+#    모델의 자기 보고는 방어가 아니다 — 오히려 성공했다고 착각·오보한다. kimi 와 동일하게
 #    샌드박스가 없으면 아예 실행하지 않는다(쓰기 가능한 채로 돌리느니 분석 하나를 포기한다).
 #
 # `--print-timeout`: agy 자체 대기 한도는 기본 5분이라 워치독(COWORK_TIMEOUT, 기본 900s)보다
@@ -1275,7 +1267,7 @@ run_agy() {
   fi
   # 실행 옵션은 run_agy_readonly() 하나에만 둔다(분석·리뷰 SSOT). 여기서 다시 쓰지 말 것 —
   # 리뷰 경로와 갈라지는 순간 회귀가 시작된다(claude 가 같은 이유로 run_claude_readonly 를 쓴다).
-  # 프롬프트는 -p 인자로 통째 전달한다(agy 에는 grok 의 --prompt-file 에 해당하는 옵션이 없다).
+  # 프롬프트는 -p 인자로 통째 전달한다(agy 에는 프롬프트 파일을 받는 옵션이 없다).
   run_agy_readonly "$PROMPT_FILE" "$file" "$log"
   rc=$?
   finalize agy "$file" "$rc" "$((SECONDS - t0))" \
@@ -1287,13 +1279,13 @@ printf '🔍 cowork: %s\n' "$SLUG" >&2
 printf '   요청: %s\n' "$PROMPT_TEXT" >&2
 printf '   출력: .cowork/%s/  (제한 %ss · 대상 %s)\n' "$SLUG" "$COWORK_TIMEOUT" "$COWORK_ONLY" >&2
 if [ -f "$REPO_ROOT/.cowork/cowork-prompt.md" ]; then
-  printf '   지침: .cowork/cowork-prompt.md 를 5 AI 에 주입함\n\n' >&2
+  printf '   지침: .cowork/cowork-prompt.md 를 6 AI 에 주입함\n\n' >&2
 elif [ -f "$REPO_ROOT/.cowork/prompt.md" ]; then
   # 예전 이름 — 읽어는 주되(하위 호환), 새 이름으로 바꾸라고 알린다.
-  printf '   지침: .cowork/prompt.md 를 5 AI 에 주입함 (예전 이름)\n' >&2
+  printf '   지침: .cowork/prompt.md 를 6 AI 에 주입함 (예전 이름)\n' >&2
   printf '   ⚠️  파일명이 바뀌었다 — `mv .cowork/prompt.md .cowork/cowork-prompt.md` 로 옮겨라.\n\n' >&2
 else
-  # 시스템 프롬프트가 없으면 다섯 AI 가 프로젝트 목적을 모른 채 일반론으로 분석한다 — 사람에게 알린다.
+  # 시스템 프롬프트가 없으면 여섯 AI 가 프로젝트 목적을 모른 채 일반론으로 분석한다 — 사람에게 알린다.
   printf '   💡 .cowork/cowork-prompt.md 가 없다 — `cowork.sh --init` 으로 이 프로젝트의 시스템 프롬프트\n' >&2
   printf '      (특성·기획·계획·페르소나·로직·개념)를 만들어 두면 이후 모든 분석 품질이 올라간다.\n\n' >&2
 fi
@@ -1303,7 +1295,8 @@ wants agy && { check_agy_model || true; }
 declare -a NAMES=() PIDS=()
 for ai in "${COWORK_AI_NAMES[@]}"; do
   wants "$ai" || continue
-  "run_$ai" & PIDS+=("$!"); NAMES+=("$ai")
+  # AI 이름의 하이픈을 밑줄로 바꿔 러너를 찾는다(copilot-grok → run_copilot_grok).
+  "run_${ai//-/_}" & PIDS+=("$!"); NAMES+=("$ai")
   printf '   ▶ %s 분석 시작 (pid %s)\n' "$ai" "$!" >&2
 done
 [ "${#PIDS[@]}" -gt 0 ] || die "실행할 AI 가 없다. COWORK_ONLY='$COWORK_ONLY' 를 확인하라."
@@ -1332,7 +1325,7 @@ if [ "$ok" -eq 0 ]; then
 fi
 
 # --- 배턴 넘기기 (이 블록을 지우지 말 것) -----------------------------------
-# 이 스크립트는 cowork 파이프라인의 *절반*(5 AI 분석)만 한다. 나머지 절반(종합=final-report.md)은
+# 이 스크립트는 cowork 파이프라인의 *절반*(6 AI 분석)만 한다. 나머지 절반(종합=final-report.md)은
 # 오케스트레이터(Claude)가 해야 하는데, 그 경계에서 배턴이 떨어지는 사고가 실제로 났다:
 #
 #   2026-07-16 실측 — cowork 두 건을 겹쳐 돌리자(11:18 product-load-fail, 11:25 billing-code6)
