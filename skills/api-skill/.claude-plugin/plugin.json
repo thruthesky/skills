@@ -1,0 +1,12 @@
+{
+  "name": "api-skill",
+  "version": "2026.09.30.2",
+  "description": "필리핀 여행 정보 API(ph-travel-api — 여행지 198곳, 8개 언어 블록 JSON) 스킬. JSON 을 SQLite 로 바꿔 여행 질문에 답하고, PHP 웹·Flutter 앱·정적 웹에 여행 정보를 넣는 조회 코드와 블록 렌더러를 제공하며, 여행지 추가·번역·검사·배포와 같은 형태의 새 정보 API 만들기를 돕는다.",
+  "author": {
+    "name": "JaeHo Song"
+  },
+  "homepage": "https://github.com/thruthesky/skills/tree/main/skills/api-skill",
+  "repository": "https://github.com/thruthesky/skills",
+  "license": "MIT",
+  "keywords": ["travel", "philippines", "api", "sqlite", "i18n"]
+}
