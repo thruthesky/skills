@@ -9,49 +9,49 @@
       "name": "open-meteo-skill",
       "source": "./skills/open-meteo-skill",
       "description": "전세계 날씨 데이터를 제공하는 무료 오픈소스 Open-Meteo API 통합 스킬. 16일 예보, 80년 역사 데이터, 대기질, 해양 날씨, 위치 검색, 고도 조회를 지원합니다.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "dokploy-skills",
       "source": "./skills/dokploy-skill",
       "description": "Dokploy 셀프호스팅 PaaS 전체 관리 스킬. 서버 관리, 앱 배포, Docker Compose, DB, Traefik, SSL, 도메인, 볼륨 백업, 모니터링, 디버깅 지원.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "currency-skill",
       "source": "./skills/currency-skill",
       "description": "Frankfurter API를 사용한 환율 정보 조회 및 통화 변환 스킬. 유럽중앙은행(ECB) 데이터 기반, API 키 불필요, 사용량 제한 없음.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "data-skill",
       "source": "./skills/data-skill",
       "description": "대한민국 공공데이터포털(data.go.kr)에서 제공하는 각종 공공데이터 API를 사용하기 위한 스킬. 공공데이터 개발 또는 공공 API 개발에 사용.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "skill-creator",
       "source": "./skills/skill-creator",
       "description": "새로운 스킬 생성, 기존 스킬 수정/개선, 스킬 성능 측정 및 최적화를 위한 스킬 생성기.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "flutter-skill",
       "source": "./skills/flutter-skill",
       "description": "Flutter 프레임워크로 앱을 개발하는 데 필요한 UI/UX 디자인, 상태관리, 네트워킹, API 연동에 관한 가이드라인 제공 스킬.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "waf-skill",
       "source": "./skills/waf",
       "description": "Cloudflare WAF로 보호된 사이트에 PHP PEST + ChromeDriver(Remote Debugging Port) 방식으로 접속하여 브라우저 자동화 작업을 수행하는 스킬.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "harness-skill",
       "source": "./skills/harness",
       "description": "OpenAI Harness Engineering 방식의 에이전트 친화적 문서 세트(AGENTS.md + docs/)를 생성하는 스킬. 짧은 AGENTS.md 진입점, 구조화된 docs/ 시스템 오브 레코드, Progressive Disclosure, 아키텍처·제품명세·실행계획·품질 문서를 만든다.",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "name": "dev",
@@ -63,7 +63,7 @@
       "name": "team",
       "source": "./skills/team",
       "description": "한 팀에서 여러 팀원(A·B·C·D·E·F)이 동시에 작업할 때 필요한 협업 인프라 스킬. Playwright MCP 와 Chrome DevTools MCP 를 상호 배타적(mutual lock)으로 한 번에 한 팀원만 사용하도록 파일 기반 잠금을 강제하고, 모든 팀원의 작업을 git commit · git log · 팀 로그(activity.log + team-<X>.md)를 통해 서로 분석·공유한다. 팀원 A 는 팀 매니저로 업무 분배·모니터링·분석을 담당.",
-      "version": "1.2.0"
+      "version": "1.2.1"
     },
     {
       "name": "cowork",
