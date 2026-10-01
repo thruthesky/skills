@@ -59,12 +59,13 @@
     - README 를 R2 기준으로 고쳐 push 했다(`547fc06`). 옛 주소(Pages)도 같은 version 을 내보낸다 — 옛 앱을 위해 당분간 둔다.
     - 스킬: `apis.json` 의 `base`, 예시 주소(api.md·database.md·rendering.md·embedding.md, `assets/` 의 주석·기본값)를 R2 로 바꿨다(2026.10.01.2).
     - 필고 앱: `TravelService.defaultBaseUrl`·`tool/build_travel_db.dart` 를 R2 로 바꾸고, 앱 DB 빌더에 `data_version` 을 넣었다. 번들 DB(`assets/travel.db.gz`)를 R2 에서 다시 만들었다(`base` R2, version `4516764917f8`). `flutter test test/travel` 26개가 통과했다.
+  - (2026-10-01) **CORS 설정** — 사용자가 키의 권한을 R2 관리(Admin Read & Write)로 올렸다. `r2.mjs cors` 명령을 더하고 버킷 `files` 에 origin `*`·GET·HEAD 규칙을 넣었다. 공개 응답의 `Access-Control-Allow-Origin: *` 와 사전 요청 204 를 확인했다.
+    - 읽기 요청으로 키의 권한을 확인했다: R2 버킷 6개 모두 객체·설정을 읽을 수 있다. 도메인(Zone)은 0개가 보이고, Pages·KV·D1·Queues·Images·Stream·Turnstile·AI·결제·구성원은 막힌다. 계정 정보·Workers 스크립트·Tunnel·Access 목록 읽기는 성공했다(쓰기는 시험하지 않았다).
 - **남은 일:**
   - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 언제 끌지 사용자와 정한다. 옛 앱(옛 번들·옛 기본 주소)이 남아 있는 동안은 둔다.
   - ph-travel-api `build.mjs` 에 `data_version` 형식 검사를 넣는다. 지금은 `content.mjs check`·`r2.mjs` 만 막는다.
   - 근거 기록 `sources/`: 기존 198곳에는 없다. 항목을 고칠 때마다 채운다.
   - 사진: 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. gallery 가 2장이 안 되는 16곳(0장 6곳·1장 10곳)을 채운다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.
-  - R2 버킷에 CORS(`Access-Control-Allow-Origin`)가 없다. 키 파일의 토큰은 객체 읽기·쓰기 권한뿐이라 S3 API·Cloudflare API 모두 403 이다. 다른 도메인의 웹 페이지가 브라우저에서 직접 받아야 하면 사용자가 대시보드에서 정한다([pipeline.md](pipeline.md) §7.5).
   - 문서가 가리키는 번역 지침·어휘집(`i18n/GUIDE.md`·`i18n/glossary/<언어>.json`)이 저장소에 없다. 번역 지침과 이름 표는 git 밖 작업 폴더(`_i18n/tools/`)에만 있다. 정리해 git 에 넣는다.
   - Node 22.14 의 내장 SQLite 에는 FTS5 가 없어 `travel.mjs`·`travel-db.mjs` 가 `no such module: fts5` 로 멈춘다. `--no-fts` 도 스키마를 통째로 실행한 뒤 색인 표를 지우는 순서라 같이 멈춘다. FTS5 가 없으면 색인 없이 만들도록 고친다.
   - 낡은 숫자: [rendering.md](rendering.md) §3 의 "지금 쓰이는 type 30개"는 33개다(`table`·`link`·`place_link` 가 쓰인다).
@@ -101,7 +102,7 @@
 ## 2.1 왜 Cloudflare R2 로 바꾸나 (2026-10-01)
 
 - **사용자 결정:** 배포는 반드시 Cloudflare R2 로 해서, 웹·앱이 공개 주소에서 곧바로 받게 한다.
-  - R2 업로드 정보는 `/Users/thruthesky/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt` 에 있다. 버킷은 `files`, 공개 도메인은 `files.withcenter.com` 이다.
+  - R2 업로드 정보는 처음에 `/Users/thruthesky/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt` 에 있었고, 같은 날 사용자가 권한을 R2 관리로 올리며 `/Users/thruthesky/Documents/Keys/Cloudflare/r2/admin-permissions-all-r2.txt` 로 옮겼다. 버킷은 `files`, 공개 도메인은 `files.withcenter.com` 이다.
 - **Pages 와 비교해 나아지는 것:** 응답 헤더를 정할 수 있다 — JSON 은 `no-cache` 라서 배포가 곧바로 보이고, Pages 처럼 10분을 기다리지 않는다. 사진은 1년 `immutable` 이다. 1GB·월 100GB 권장 한도에도 매이지 않는다.
 - **올리는 방법 — 외부 패키지 없는 SigV4 서명(`r2.mjs`):**
   - 개발 컴퓨터에 aws CLI·wrangler·rclone 이 없다. 이 저장소들은 외부 패키지를 쓰지 않는다는 원칙도 있다.
@@ -110,7 +111,7 @@
   - 공유 버킷이라 `<이름>/v<숫자>/` prefix 아래에만 올리고 지운다.
   - 사진 → 언어 파일 → meta → manifest 순서로 올리고, 지우기는 manifest 뒤에 한다. 중간에 멈춰도 클라이언트는 옛 데이터를 그대로 받는다.
   - 올리기 전에 배포 규격 검사(`checkBuild`)를 한다. ETag(MD5)를 비교해 바뀐 파일만 올린다.
-- **CORS:** 버킷 응답에 `Access-Control-Allow-Origin` 이 없다. 버킷 전체 설정이라 스킬이 바꾸지 않는다. 기본 방식이 넣어 쓰기라서 대개 필요 없다.
+- **CORS:** 처음에는 키 권한이 모자라 넣지 못했다. 사용자가 권한을 올린 뒤 `r2.mjs cors --set` 으로 origin `*`·GET·HEAD 를 열었다(2026-10-01). 공개 읽기 전용 데이터라 모든 도메인에 열어도 된다고 판단했다.
 - **옮긴 날:** 2026-10-01 에 첫 배포를 확인하고 공개 주소를 R2 로 바꿨다(§1). 옛 주소(Pages)는 `main` push 로 계속 배포되며, 끌 때는 사용자와 정한다.
 
 ## 3. 왜 블록 JSON 인가 (2026-09-27)

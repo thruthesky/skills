@@ -75,7 +75,7 @@
       "name": "api-skill",
       "source": "./skills/api-skill",
       "description": "필리핀 여행 정보 API(ph-travel-api — 여행지 198곳, 8개 언어 블록 JSON) 스킬. JSON 을 SQLite 로 바꿔 여행 질문에 답하고, PHP 웹·Flutter 앱·정적 웹에 여행 정보를 넣는 조회 코드와 블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 정보와 맞는 사진 검증, 8개 언어 번역, meta.json data_version(UTC), Cloudflare R2 배포. 같은 형태의 새 정보 API 만들기도 돕는다.",
-      "version": "2026.10.01.2"
+      "version": "2026.10.01.3"
     }
   ]
 }

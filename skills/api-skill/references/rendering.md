@@ -150,7 +150,7 @@ route();
 
 ### 5.2 로컬에서 시험할 때 — CORS
 
-넣어 둔 파일을 쓰면 같은 출처라 CORS 문제가 없다. 원격 API 주소를 직접 시험할 때만 해당한다. GitHub Pages 는 `Access-Control-Allow-Origin: *` 를 주지만, R2 버킷은 아직 주지 않고(2026-10-01, [pipeline.md](pipeline.md) §7.5) `python3 -m http.server` 도 주지 않는다. 그래서 페이지와 API 를 다른 포트로 띄우면 브라우저가 JSON 을 막는다. 두 가지 방법이 있다.
+넣어 둔 파일을 쓰면 같은 출처라 CORS 문제가 없다. 원격 API 주소를 직접 시험할 때만 해당한다. 공개 주소(R2, [pipeline.md](pipeline.md) §7.5)와 옛 주소(GitHub Pages)는 `Access-Control-Allow-Origin: *` 를 주지만, `python3 -m http.server` 는 주지 않는다. 그래서 페이지와 API 를 다른 포트로 띄우면 브라우저가 JSON 을 막는다. 두 가지 방법이 있다.
 
 1. **같은 출처로 띄우기** — `export` 한 폴더를 페이지와 같은 서버에 둔다(권장).
 2. **CORS 헤더를 주는 서버로 API 띄우기:**

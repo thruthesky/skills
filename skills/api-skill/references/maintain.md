@@ -66,6 +66,7 @@ ph-travel-api/
 | 사진 검증 | `node <스킬 폴더>/scripts/content.mjs images --dir _site/v2 [--ids 30,62]` — Commons 촬영 위치·라이선스·작가와 대조 |
 | R2 배포 | `node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph [--dry-run] [--prune]` |
 | R2 확인 | `node <스킬 폴더>/scripts/r2.mjs verify --dir _site/v2 --country ph` · 접속만 `r2.mjs check` |
+| R2 CORS | `node <스킬 폴더>/scripts/r2.mjs cors [--set]` — 버킷 `files` 는 origin `*`·GET·HEAD 로 설정돼 있다. 키에 R2 관리 권한 필요 |
 | 빌드 결과 조회 | `node <스킬 폴더>/scripts/travel.mjs --base _site/v2 --lang ko list` (show·search·sql 도 된다) |
 | 빌드 결과를 DB 로 | `node <스킬 폴더>/scripts/travel-db.mjs build --base _site/v2 --out /tmp/travel.db` |
 | 로컬에서 응답 확인 | `cd _site && python3 -m http.server 8765` → `http://127.0.0.1:8765/v2/manifest.json` |
@@ -139,7 +140,7 @@ ph-travel-api/
 9. **서브모듈 커밋 순서:** 이 저장소에서 먼저 커밋·push 한 뒤, 필고 저장소에서 `submodules/ph-travel-api` 포인터를 커밋한다.
 10. **필고의 `apps/travel/data/travel/` 은 옛 마크다운 사본이다.** 여행지 내용은 **이 저장소에서만** 고친다.
 11. **콘텐츠는 다섯 가지를 지킨다** — 여러 출처 비교 조사(`sources/`), 정보와 맞는 사진, 8개 언어, `meta.json` 규격과 `data_version`, R2 배포([pipeline.md](pipeline.md)).
-12. **R2 키 파일(`~/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt`)의 값은 출력·커밋하지 않는다.** `r2.mjs` 가 읽는다.
+12. **R2 키 파일(`~/Documents/Keys/Cloudflare/r2/admin-permissions-all-r2.txt`, R2 관리 권한)의 값은 출력·커밋하지 않는다.** `r2.mjs` 가 읽는다.
 
 ## 6. 자주 하는 작업
 

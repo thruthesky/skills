@@ -2,14 +2,15 @@
 // Cloudflare R2 배포 — 정보 API 의 빌드 폴더(_site/v2 등)를 R2 버킷에 올려 웹·앱이 공개 주소에서 곧바로 받게 한다.
 // 규격은 ../references/pipeline.md §7. 외부 패키지 없음 (Node 22+ — S3 호환 API 를 SigV4 로 직접 서명한다).
 //
-// 키 파일: ~/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt (R2_KEYS 로 바꿀 수 있다)
+// 키 파일: ~/Documents/Keys/Cloudflare/r2/admin-permissions-all-r2.txt (R2_KEYS 로 바꿀 수 있다)
 //   node r2.mjs check [--prefix ph-travel-api/v2/]                       키 파일·접속 확인 (읽기 전용)
 //   node r2.mjs ls <prefix>                                              올라가 있는 파일
 //   node r2.mjs deploy --dir _site/v2 --prefix ph-travel-api/v2/ [--dry-run] [--prune]
 //   node r2.mjs deploy --dir _site/v2 --country ph                       prefix 를 apis.json 의 r2_prefix 로
 //   node r2.mjs verify --dir _site/v2 --prefix ph-travel-api/v2/          공개 주소로 받아 version·사진·CORS 확인
+//   node r2.mjs cors [--set [--origins https://a,https://b] [--force]]    버킷 CORS 보기·설정 (키에 R2 관리 권한 필요)
 //
-// 모듈로도 쓴다: loadConfig · r2Request · listObjects · putObject · deleteObject
+// 모듈로도 쓴다: loadConfig · r2Request · listObjects · putObject · deleteObject · getCors · putCors
 import { createHash, createHmac } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -18,7 +19,12 @@ import { fileURLToPath } from 'node:url';
 import { checkBuild } from './content.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_KEYS = join(homedir(), 'Documents', 'Keys', 'Cloudflare', 'files.withcenter.com', 'files.withcenter.com-r2.txt');
+/** 키 파일 후보 — 앞의 것부터 있는 파일을 쓴다. 2026-10-01 에 r2/admin-permissions-all-r2.txt 로 옮겼다(R2 관리 권한). */
+const KEY_FILES = [
+  join(homedir(), 'Documents', 'Keys', 'Cloudflare', 'r2', 'admin-permissions-all-r2.txt'),
+  join(homedir(), 'Documents', 'Keys', 'Cloudflare', 'files.withcenter.com', 'files.withcenter.com-r2.txt'),
+];
+export const DEFAULT_KEYS = KEY_FILES.find((f) => existsSync(f)) ?? KEY_FILES[0];
 /** 공유 버킷이라 반드시 <이름>/v<숫자>/ 아래에만 올리고 지운다 — 버킷 뿌리나 다른 프로젝트 파일을 건드리지 않는다. */
 const PREFIX_RE = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]*)*\/v\d+\/$/;
 
@@ -38,6 +44,7 @@ const mask = (s) => (s ? `${s.slice(0, 4)}…(${s.length}자)` : '없음');
 /**
  * 키 파일을 읽는다. Cloudflare 대시보드가 보여 주는 그대로 「이름:」 줄 다음 줄에 값이 있는 형식이다.
  *   Custom Domain: → 공개 주소 도메인 · Buckets: → 버킷 · Access Key ID: · Secret Access Key: · …endpoints for S3 clients: → S3 주소
+ * 값 줄 앞의 목록 기호(`- `·`* `)와 공개 도메인의 `https://`·끝 `/` 는 떼고 읽는다. 「이름:」으로 끝나지 않는 설명 줄은 건너뛴다.
  * 환경 변수(R2_ACCESS_KEY_ID · R2_SECRET_ACCESS_KEY · R2_ENDPOINT · R2_BUCKET · R2_PUBLIC_URL)가 있으면 그 값이 앞선다 (CI 용).
  * 값은 화면·로그에 찍지 않는다.
  */
@@ -48,9 +55,9 @@ export function loadConfig(file = process.env.R2_KEYS ?? DEFAULT_KEYS) {
     for (let i = 0; i < lines.length; i++) {
       if (!lines[i].endsWith(':')) continue;
       const label = lines[i].toLowerCase();
-      const value = lines.slice(i + 1).find((l) => l !== '');
+      const value = lines.slice(i + 1).find((l) => l !== '')?.replace(/^[-*•]\s*/, '').trim();
       if (!value || value.endsWith(':')) continue;
-      if (label.startsWith('custom domain')) found.domain = value;
+      if (label.startsWith('custom domain')) found.domain = value.replace(/^https?:\/\//, '').replace(/\/+$/, '');
       else if (label.startsWith('bucket')) found.bucket = value.split(/[,\s]+/)[0];
       else if (label.startsWith('access key id')) found.accessKeyId = value;
       else if (label.startsWith('secret access key')) found.secretAccessKey = value;
@@ -69,6 +76,7 @@ export function loadConfig(file = process.env.R2_KEYS ?? DEFAULT_KEYS) {
   const missing = ['accessKeyId', 'secretAccessKey', 'endpoint', 'bucket', 'publicUrl'].filter((k) => !cfg[k]);
   if (missing.length) fail(`R2 설정이 모자란다 — ${missing.join(', ')}. 키 파일: ${file}${existsSync(file) ? '' : ' (없음)'}`);
   if (!/^https:\/\/[a-z0-9.-]+$/i.test(cfg.endpoint)) fail(`S3 endpoint 형식 오류 — ${cfg.endpoint.replace(/\/\/[^.]+/, '//…')}`);
+  if (!/^https:\/\/[a-z0-9.-]+$/i.test(cfg.publicUrl)) fail(`공개 주소 형식 오류 — ${cfg.publicUrl} (키 파일의 Custom Domain 다음 줄에 도메인만 적는다)`);
   return cfg;
 }
 
@@ -255,10 +263,66 @@ async function verify(dir, opts, cfg = loadConfig(opts.keys)) {
     }
   });
   console.log(`공개 주소 ${base}manifest.json — version ${remote.version} · data_version ${meta.data_version} · 파일 ${files.length}개 확인`);
-  if (!cors) console.log('(알림) Access-Control-Allow-Origin 이 없다 — 다른 도메인의 웹 브라우저는 JSON 을 못 받는다(앱·서버는 상관없다). 버킷 CORS 는 버킷 전체 설정이라 사용자에게 알리고 대시보드 R2 > 버킷 > Settings > CORS Policy 에서 GET·HEAD 를 연다');
+  if (!cors) console.log('(알림) Access-Control-Allow-Origin 이 없다 — 다른 도메인의 웹 브라우저는 JSON 을 못 받는다(앱·서버는 상관없다). 키에 R2 관리 권한이 있으면 node r2.mjs cors --set 으로 연다(버킷 전체 설정). 없으면 대시보드 R2 > 버킷 > Settings > CORS Policy');
   else console.log(`CORS — Access-Control-Allow-Origin: ${cors}`);
   if (problems.length) fail(`확인 실패 ${problems.length}건\n${problems.slice(0, 30).map((p) => `  - ${p}`).join('\n')}`);
   console.log('확인 끝 — 웹·앱이 이 주소에서 바로 받을 수 있다');
+}
+
+// ───────────── 버킷 CORS ─────────────
+
+/** 버킷 CORS 규칙을 읽는다. 설정이 없으면 []. 키에 R2 관리(Admin Read) 권한이 있어야 한다. */
+export async function getCors(cfg) {
+  let xml;
+  try {
+    xml = await (await r2Request(cfg, 'GET', '', { query: { cors: '' } })).text();
+  } catch (e) {
+    if (/NoSuchCORSConfiguration/.test(e.message)) return [];
+    if (/AccessDenied/.test(e.message)) throw new Error(`${e.message} — 버킷 CORS 를 읽고 바꾸려면 키에 R2 관리(Admin Read & Write) 권한이 있어야 한다`);
+    throw e;
+  }
+  const all = (block, name) => [...block.matchAll(new RegExp(`<${name}>([\\s\\S]*?)</${name}>`, 'g'))].map((m) => unxml(m[1]));
+  return [...xml.matchAll(/<CORSRule>([\s\S]*?)<\/CORSRule>/g)].map(([, r]) => ({
+    origins: all(r, 'AllowedOrigin'), methods: all(r, 'AllowedMethod'), headers: all(r, 'AllowedHeader'),
+    expose: all(r, 'ExposeHeader'), maxAge: Number(tag(r, 'MaxAgeSeconds') || 0),
+  }));
+}
+
+/** 버킷 CORS 를 이 규칙 하나로 바꾼다(PutBucketCors 는 통째로 바꾼다). 키에 R2 관리(Admin Read & Write) 권한이 있어야 한다. */
+export async function putCors(cfg, rule) {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const xml = `<?xml version="1.0" encoding="UTF-8"?><CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><CORSRule>${
+    rule.origins.map((o) => `<AllowedOrigin>${esc(o)}</AllowedOrigin>`).join('')}${
+    rule.methods.map((m) => `<AllowedMethod>${esc(m)}</AllowedMethod>`).join('')}${
+    rule.headers.map((h) => `<AllowedHeader>${esc(h)}</AllowedHeader>`).join('')}${
+    rule.expose.map((h) => `<ExposeHeader>${esc(h)}</ExposeHeader>`).join('')}<MaxAgeSeconds>${rule.maxAge}</MaxAgeSeconds></CORSRule></CORSConfiguration>`;
+  const body = Buffer.from(xml);
+  await r2Request(cfg, 'PUT', '', { query: { cors: '' }, body, headers: { 'content-type': 'application/xml', 'content-md5': createHash('md5').update(body).digest('base64') } });
+}
+
+const showRules = (rules) => (rules.length
+  ? rules.map((r, i) => `  규칙 ${i + 1}: origin ${r.origins.join(', ')} · method ${r.methods.join(', ')} · header ${r.headers.join(', ') || '-'} · expose ${r.expose.join(', ') || '-'} · max-age ${r.maxAge}s`).join('\n')
+  : '  (설정 없음 — 다른 도메인의 웹 브라우저는 받지 못한다)');
+
+/**
+ * 버킷 CORS 를 보거나(`cors`) 공개 데이터에 맞는 규칙으로 바꾼다(`cors --set [--origins a,b] [--force]`).
+ * 공개 읽기 전용 데이터라 GET·HEAD 만 연다. 버킷 전체에 걸리는 설정이라, 이미 다른 규칙이 있으면 --force 없이는 바꾸지 않는다.
+ */
+async function cors(opts) {
+  const cfg = loadConfig(opts.keys);
+  const now = await getCors(cfg);
+  console.log(`버킷 ${cfg.bucket} 의 CORS\n${showRules(now)}`);
+  if (!opts.set) return;
+  const want = {
+    origins: typeof opts.origins === 'string' ? opts.origins.split(',').map((s) => s.trim()).filter(Boolean) : ['*'],
+    methods: ['GET', 'HEAD'], headers: ['*'], expose: ['ETag'], maxAge: 86400,
+  };
+  const same = now.length === 1 && JSON.stringify(now[0]) === JSON.stringify(want);
+  if (same) return console.log('이미 같은 규칙이다 — 바꾸지 않는다');
+  if (now.length && !opts.force) fail('이미 다른 CORS 규칙이 있다 — 버킷 전체 설정이라 그대로 둔다. 바꾸려면 --force (기존 규칙은 사라진다)');
+  await putCors(cfg, want);
+  console.log(`바꿨다\n${showRules(await getCors(cfg))}`);
+  console.log('공개 주소에 반영되기까지 몇 초~몇 분 걸릴 수 있다 — node r2.mjs verify 로 Access-Control-Allow-Origin 을 확인한다');
 }
 
 async function check(opts) {
@@ -298,11 +362,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const dir = resolve(opts.dir ?? '_site/v2');
   try {
     if (command === 'check') await check(opts);
+    else if (command === 'cors') await cors(opts);
     else if (command === 'ls') await ls(rest[0] ?? opts.prefix, opts);
     else if (command === 'deploy') await deploy(dir, opts);
     else if (command === 'verify') await verify(dir, opts);
     else {
-      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 11).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
+      console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 12).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'));
       if (command && command !== 'help') process.exit(1);
     }
   } catch (e) {

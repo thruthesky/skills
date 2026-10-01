@@ -227,10 +227,14 @@ if (JSON.parse(out).data_version !== now) throw new Error('쓰지 못함');
 
 ### 7.1 키 파일과 비밀
 
-- **R2 업로드 정보:** `/Users/thruthesky/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt`
-  - `r2.mjs` 의 기본값이다(`~/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt`). 다른 곳이면 `R2_KEYS=<경로>`.
-  - 형식은 Cloudflare 대시보드가 보여 준 그대로, 「이름:」 줄 다음 줄에 값이 있다 — `Custom Domain`(files.withcenter.com) · `Buckets`(files) · `Access Key ID` · `Secret Access Key` · S3 endpoint.
+- **R2 업로드 정보:** `/Users/thruthesky/Documents/Keys/Cloudflare/r2/admin-permissions-all-r2.txt` — 2026-10-01 에 옛 위치(`~/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt`)에서 옮겼다.
+  - `r2.mjs` 의 기본값이다. 새 위치에 없으면 옛 위치를 찾는다. 다른 곳이면 `R2_KEYS=<경로>`.
+  - 형식은 Cloudflare 대시보드가 보여 준 그대로, 「이름:」 줄 다음 줄에 값이 있다 — `Custom Domain`(files.withcenter.com) · `Buckets`(files) · `Access Key ID` · `Secret Access Key` · S3 endpoint. 값 앞의 목록 기호(`- `)와 「이름:」으로 끝나지 않는 설명 줄은 `r2.mjs` 가 무시한다.
   - CI 처럼 파일이 없는 곳은 환경 변수 `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` · `R2_ENDPOINT` · `R2_BUCKET` · `R2_PUBLIC_URL` 을 쓴다.
+  - **권한(2026-10-01 확인): R2 관리(Admin Read & Write).** 사용자가 대시보드에서 권한을 올리고 키 파일을 지금 위치로 옮겼다.
+    - 계정의 **R2 버킷 6개 모두**(`cadeplay-assets`·`cadeplay-uploads`·`files`·`laryen-assets`·`pes-models`·`philgo-assets`)의 객체와 설정을 읽고 바꿀 수 있다. Admin 권한은 버킷을 좁힐 수 없다.
+    - 도메인(Zone)은 하나도 보이지 않는다 — DNS·캐시·규칙은 바꿀 수 없다. Pages·KV·D1·Queues·Images·Stream·Turnstile·AI 등도 권한이 없다.
+    - 그래서 `r2.mjs` 는 키 파일의 버킷(`files`)만 쓰고, 그 안에서도 `<이름>/v<숫자>/` prefix 밖은 올리거나 지우지 않는다. 다른 버킷은 다루지 않는다.
 - **비밀 값은 출력·대화·커밋·문서에 쓰지 않는다.** 이 스킬 저장소는 공개다. 키 파일을 `cat` 하지 말고 `r2.mjs` 가 읽게 한다. `r2.mjs check` 는 키를 앞 4자만 보여 준다.
 
 ### 7.2 공개 주소
@@ -286,20 +290,35 @@ headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, Si
 
 ### 7.5 CORS
 
-- 2026-10-01 실측: 버킷 응답에 `Access-Control-Allow-Origin` 이 없다.
-  - 앱(Flutter)·서버(PHP)·개발 컴퓨터에서 받는 것은 상관없다.
-  - 다른 도메인의 웹 페이지가 브라우저에서 직접 받을 때만 막힌다. 기본 방식은 넣어 쓰기라서([embedding.md](embedding.md)) 대개 필요 없다.
-- 버킷 CORS 는 버킷 전체에 걸리는 설정이라 스킬이 바꾸지 않는다. 키 파일의 토큰은 객체 읽기·쓰기 권한뿐이라 바꿀 수도 없다 — S3 API(`GetBucketCors`)와 Cloudflare API(`/r2/buckets/files/cors`) 모두 403 이다(2026-10-01 확인). 필요하면 사용자가 대시보드에서 바꾼다 — R2 > `files` > Settings > CORS Policy:
+- **버킷 `files` 의 CORS (2026-10-01 설정):** origin `*` · method `GET`·`HEAD` · header `*` · expose `ETag` · max-age 86400초.
+  - 공개 응답에 `Access-Control-Allow-Origin: *` 가 붙고, 브라우저의 사전 요청(OPTIONS)에 204 로 답한다. 다른 도메인의 웹 페이지도 JSON·사진을 바로 받는다.
+  - 공개 읽기 전용 데이터라 GET·HEAD 만 연다. 쓰기는 S3 서명이 있어야 하므로 CORS 와 무관하다.
+- **명령** — 키에 R2 관리(Admin Read & Write) 권한이 있어야 한다:
 
-```json
-[{ "AllowedOrigins": ["*"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 86400 }]
+```bash
+node <스킬>/scripts/r2.mjs cors                                   # 지금 규칙 보기
+node <스킬>/scripts/r2.mjs cors --set                             # 위 규칙으로 (이미 같으면 바꾸지 않는다)
+node <스킬>/scripts/r2.mjs cors --set --origins https://philgo.com,https://www.philgo.com   # 도메인을 좁힐 때
+```
+
+- 버킷 전체에 걸리는 설정이다. 다른 규칙이 이미 있으면 `--force` 없이는 바꾸지 않는다(PutBucketCors 는 규칙을 통째로 바꿔서 기존 규칙이 사라진다).
+- 권한이 없는 키면 `AccessDenied` 가 난다. 그때는 대시보드 R2 > 버킷 > Settings > CORS Policy 에서 같은 규칙을 넣는다.
+- 핵심 코드 — S3 PutBucketCors 는 `?cors` 쿼리에 XML 을 PUT 하고, `Content-MD5`(본문 MD5 의 base64)를 서명할 헤더에 넣어야 한다:
+
+```js
+const xml = `<CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><CORSRule><AllowedOrigin>*</AllowedOrigin>`
+  + '<AllowedMethod>GET</AllowedMethod><AllowedMethod>HEAD</AllowedMethod><AllowedHeader>*</AllowedHeader>'
+  + '<ExposeHeader>ETag</ExposeHeader><MaxAgeSeconds>86400</MaxAgeSeconds></CORSRule></CORSConfiguration>';
+const body = Buffer.from(xml);
+await r2Request(cfg, 'PUT', '', { query: { cors: '' }, body,
+  headers: { 'content-type': 'application/xml', 'content-md5': createHash('md5').update(body).digest('base64') } });
 ```
 
 ### 7.6 실패하면
 
 - 중간에 멈췄으면 다시 실행한다. 바뀐 것만 이어서 올리고, manifest 는 마지막에 바뀐다.
 - 되돌리기: 이전 커밋을 체크아웃 → `build.mjs` → `r2.mjs deploy`. R2 는 옛 판을 보관하지 않는다.
-- `HTTP 403 SignatureDoesNotMatch`·`AccessDenied`: 키 파일과 토큰 권한(버킷 `files` 의 읽기·쓰기·목록)을 확인한다.
+- `HTTP 403 SignatureDoesNotMatch`·`AccessDenied`: 키 파일과 토큰 권한을 확인한다. 배포에는 객체 읽기·쓰기·목록, `cors` 에는 R2 관리 권한이 필요하다.
 - `verify` 의 "내용이 다르다": 다른 사람이 같은 prefix 에 올렸거나 배포 중이다. `deploy` 를 다시 실행한다.
 
 ## 8. 분석과 문서화

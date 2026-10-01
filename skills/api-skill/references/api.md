@@ -30,7 +30,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 - 원본 언어는 `ko`(한국어), 대체 언어는 `en` 이다. 원하는 언어가 없으면 대체 언어를 쓴다.
 - `zh` 는 간체(`zh-Hans`), `ar` 은 오른쪽→왼쪽(`dir: "rtl"`)이다.
 - 응답 헤더 — JSON 은 `application/json; charset=utf-8`, 사진은 `image/webp` 이다.
-  - Cloudflare R2(기본 주소, [pipeline.md](pipeline.md) §7): JSON 은 `Cache-Control: no-cache`(ETag 로 확인 — 배포가 곧바로 보인다), 사진은 `public, max-age=31536000, immutable`. `Access-Control-Allow-Origin` 은 아직 없다(2026-10-01) — 다른 도메인의 웹 브라우저가 직접 받으려면 버킷 CORS 가 필요하다. 앱·서버·넣어 쓰기는 상관없다.
+  - Cloudflare R2(기본 주소, [pipeline.md](pipeline.md) §7): JSON 은 `Cache-Control: no-cache`(ETag 로 확인 — 배포가 곧바로 보인다), 사진은 `public, max-age=31536000, immutable`. `Access-Control-Allow-Origin: *`(GET·HEAD, 2026-10-01 부터) — 다른 도메인의 웹 페이지도 브라우저에서 바로 받는다.
   - GitHub Pages(옛 주소): 모든 응답에 `Cache-Control: max-age=600` 과 `Access-Control-Allow-Origin: *`.
 
 ## 2. manifest.json
