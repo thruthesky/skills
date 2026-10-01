@@ -204,7 +204,7 @@ export function buildDb(bundle, outPath, { fts = true } = {}) {
     const publicBase = bundle.api?.base ?? (/^https?:\/\//.test(base) ? base : '');
     const metaRows = {
       country: code, base: publicBase, source: base, schema: manifest.schema, version: manifest.version, count: manifest.count,
-      generated_at: manifest.generated_at, built_at: new Date().toISOString(),
+      data_version: meta.data_version, generated_at: manifest.generated_at, built_at: new Date().toISOString(),
       languages: JSON.stringify(langs), source_language: manifest.source_language, fallback_language: manifest.fallback_language,
       fts: fts ? 1 : 0, meta_json: JSON.stringify(meta),
     };

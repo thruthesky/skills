@@ -22,9 +22,9 @@
 | 항목 | 값 |
 |------|----|
 | 정체 | 필리핀 여행지 198곳을 **8개 언어 블록 JSON** 으로 내주는 **정적 API**. 서버 코드·DB 없음 |
-| 공개 주소 | `https://thruthesky.github.io/ph-travel-api/v2/manifest.json` |
-| 호스팅 | GitHub Pages (Source: **GitHub Actions**) |
-| 배포 | `main` 에 push → `.github/workflows/deploy.yml` → `node scripts/build.mjs` → Pages. 1~2분 |
+| 공개 주소 | 지금 `https://thruthesky.github.io/ph-travel-api/v2/manifest.json` (Pages). R2 첫 배포 뒤 `https://files.withcenter.com/ph-travel-api/v2/manifest.json` |
+| 호스팅 | **Cloudflare R2** — 버킷 `files`, 공개 도메인 `files.withcenter.com`, prefix `ph-travel-api/v2/` (옮기는 중). 옛 주소는 GitHub Pages (Source: GitHub Actions) |
+| 배포 | `node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph` ([pipeline.md](pipeline.md) §7). R2 로 옮기기 전까지는 `main` push 도 `.github/workflows/deploy.yml` 로 Pages 에 배포된다(1~2분) |
 | 원본 | `data/ko/*.json`(원본 언어 한국어) · `data/<en·zh·ja·th·vi·ru·ar>/*.json`(번역본) · `data/meta.json`(언어·분류 목록·속성·단락·표시 방법) · `data/images/*.webp` 사진 572장 |
 | 빌드 결과 | `_site/v2/` — `manifest.json` · `meta.json` · `places.<lang>.json` 8개 · `images/` |
 | 저장소 | `github.com/thruthesky/ph-travel-api` (공개) |
@@ -40,7 +40,8 @@
 ph-travel-api/
 ├─ AGENTS.md                       ← 이 스킬을 가리키는 짧은 안내 (CLAUDE.md 는 그 심볼릭 링크)
 ├─ README.md                       ← API 형식·클라이언트 절차 (사람용). 스킬 설치는 thruthesky/skills 의 README
-├─ .github/workflows/deploy.yml    ← main push → 빌드 → Pages 배포
+├─ .github/workflows/deploy.yml    ← main push → 빌드 → Pages 배포 (옛 주소 — R2 로 옮긴 뒤 끌지 정한다)
+├─ sources/<번호>-<slug>.json      ← 근거 기록 — 사실마다 출처·판단, 사진 확인 (git 에 넣고 배포하지 않음, pipeline.md §3.5)
 ├─ .claude/settings.json           ← 이 저장소에서 api-skill 플러그인을 켠다 (thruthesky/skills 마켓플레이스, 프로젝트 범위)
 ├─ scripts/build.mjs               ← 규격 검사 + 언어별 JSON + 사진 해시
 ├─ scripts/i18n.mjs                ← 번역본 만들기·원본과 맞추기 (사용법: data/README.md §7)
@@ -60,12 +61,16 @@ ph-travel-api/
 |------|------|
 | 빌드 + 규격 검사 | `node scripts/build.mjs` — 성공하면 version·언어·미사용 type, 실패하면 오류 목록과 exit 1 |
 | 번역 맞추기 | `node scripts/i18n.mjs …` — 명령과 옵션은 `data/README.md` §7 |
+| 정보 기준 시각 찍기 | `node <스킬 폴더>/scripts/content.mjs stamp data/meta.json` — `data_version` = 지금 UTC 시각. 가공·수정 커밋마다 |
+| 배포 규격 검사 | `node <스킬 폴더>/scripts/content.mjs check --dir _site/v2` — 8개 언어·`data_version`·version 일치·사진·credit |
+| 사진 검증 | `node <스킬 폴더>/scripts/content.mjs images --dir _site/v2 [--ids 30,62]` — Commons 촬영 위치·라이선스·작가와 대조 |
+| R2 배포 | `node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph [--dry-run] [--prune]` |
+| R2 확인 | `node <스킬 폴더>/scripts/r2.mjs verify --dir _site/v2 --country ph` · 접속만 `r2.mjs check` |
 | 빌드 결과 조회 | `node <스킬 폴더>/scripts/travel.mjs --base _site/v2 --lang ko list` (show·search·sql 도 된다) |
 | 빌드 결과를 DB 로 | `node <스킬 폴더>/scripts/travel-db.mjs build --base _site/v2 --out /tmp/travel.db` |
 | 로컬에서 응답 확인 | `cd _site && python3 -m http.server 8765` → `http://127.0.0.1:8765/v2/manifest.json` |
-| 배포 진행 상황 | `gh run list --limit 3` · `gh run watch` |
-| 배포 결과 확인 | `curl -s https://thruthesky.github.io/ph-travel-api/v2/manifest.json` |
-| Pages 설정 확인 | `gh api repos/thruthesky/ph-travel-api/pages --jq .build_type` → `workflow` 여야 한다 |
+| (옛 주소) Pages 배포 상황 | `gh run list --limit 3` · `gh run watch` |
+| (옛 주소) Pages 결과 확인 | `curl -s https://thruthesky.github.io/ph-travel-api/v2/manifest.json` |
 
 - Node 는 24 를 쓴다(Actions 와 같다). `npm install` 할 것이 없다. 스킬 묶음에는 시스템 `tar` 를 쓴다.
 
@@ -114,8 +119,8 @@ ph-travel-api/
 
 ## 5. 규칙
 
-1. **`main` push 는 곧 운영 배포다.** 필고 프로젝트 규칙에 따라 push 는 사용자가 요청할 때만 한다. 작업을 마치면 커밋까지만 한다.
-2. **push 전에 반드시 `node scripts/build.mjs` 가 성공해야 한다.**
+1. **운영 배포는 R2 업로드다.** 필고 프로젝트 규칙에 따라 배포와 push 는 사용자가 요청할 때만 한다. 작업을 마치면 커밋까지만 한다. R2 로 옮기기 전까지는 `main` push 도 Pages 로 배포된다.
+2. **배포·push 전에 반드시 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 커밋한 내용만 R2 에 올린다.
 3. **`_site/` 는 커밋하지 않는다.** 배포 때 Actions 가 새로 만든다.
 4. **외부 npm 패키지를 넣지 않는다.** 빌드는 Node 기본 모듈과 시스템 tar 만 쓴다. 그래서 `package.json` 도 없다.
 5. **원본은 한국어(`data/ko/`)다.** 내용은 원본에서 먼저 고친다. 번역본은 `scripts/i18n.mjs` 와 `i18n/GUIDE.md` 로 맞춘다. 번역본만 따로 고치면 다음 맞추기에서 덮이거나, 모양이 달라져 빌드가 실패한다.
@@ -133,27 +138,31 @@ ph-travel-api/
    - 여행지 속성·단락 → 스킬의 SQLite 스키마와 `travel-db.mjs` 의 `buildDb`, `TravelDb.php`·`travel_db.dart`([database.md](database.md))
 9. **서브모듈 커밋 순서:** 이 저장소에서 먼저 커밋·push 한 뒤, 필고 저장소에서 `submodules/ph-travel-api` 포인터를 커밋한다.
 10. **필고의 `apps/travel/data/travel/` 은 옛 마크다운 사본이다.** 여행지 내용은 **이 저장소에서만** 고친다.
+11. **콘텐츠는 다섯 가지를 지킨다** — 여러 출처 비교 조사(`sources/`), 정보와 맞는 사진, 8개 언어, `meta.json` 규격과 `data_version`, R2 배포([pipeline.md](pipeline.md)).
+12. **R2 키 파일(`~/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt`)의 값은 출력·커밋하지 않는다.** `r2.mjs` 가 읽는다.
 
 ## 6. 자주 하는 작업
 
 ### 6.1 여행지 추가
 
-1. 비어 있는 번호로 `data/ko/<id 3자리>-<slug>.json` 을 만든다.
+1. 조사한다 — 같은 사실을 여러 출처에서 비교하고 `sources/<id 3자리>-<slug>.json` 에 남긴다([pipeline.md](pipeline.md) §3). 맞는 사진을 구할 수 있는지도 이때 본다.
+2. 비어 있는 번호로 `data/ko/<id 3자리>-<slug>.json` 을 만든다.
    - 비슷한 여행지 파일을 복사해 고치면 빠르다. 형식은 `data/README.md` 를 따른다.
    - 분류·권역·지역은 `value` 에 `meta.json` 의 key 를, `text` 에 한국어 이름을 쓴다.
-2. 사진을 준비한다.
+3. 사진을 준비한다.
    - Wikimedia Commons 의 CC·퍼블릭 도메인 사진을 1080px WebP 로 줄여 `data/images/<같은 이름>.webp` 에 둔다.
    - 추가 사진은 `-2`, `-3` 을 붙인다.
    - image 노드마다 `credit`(작가 / 라이선스 / 출처)과 `source`(원본 페이지)를 적는다. `width`·`height`·`?v=` 는 빌드가 붙인다.
-3. 글은 `children` 조각으로 쓴다. 금액·시각·날짜·소요 시간·거리·기온은 type 조각으로 따로 자른다.
-4. 새 지역이면 `data/meta.json` 의 `regions` 에 key 와 8개 언어 이름을 더하고, 어휘집에도 넣는다.
-5. 7개 언어 번역본을 만든다 — `scripts/i18n.mjs` 와 `i18n/GUIDE.md` 를 따른다(`data/README.md` §7).
-6. 다른 여행지의 `nearby` 단락에 `place: "<slug>"` 카드로 새 여행지를 연결하면 좋다. 원본을 고쳤으니 번역본도 맞춘다.
-7. `node scripts/build.mjs` → 커밋.
+   - 사진은 정보와 맞아야 한다 — 파일 페이지의 설명·분류·촬영 위치를 보고 사진을 직접 열어 확인한다. 대표 사진은 장소가 보이는 것, 새 항목은 대표 1장 + gallery 2장([pipeline.md](pipeline.md) §4).
+4. 글은 `children` 조각으로 쓴다. 금액·시각·날짜·소요 시간·거리·기온은 type 조각으로 따로 자른다.
+5. 새 지역이면 `data/meta.json` 의 `regions` 에 key 와 8개 언어 이름을 더하고, 어휘집에도 넣는다.
+6. 7개 언어 번역본을 만든다(8개 언어가 모두 있어야 배포된다). `scripts/i18n.mjs` 와 `i18n/GUIDE.md` 를 따른다(`data/README.md` §7).
+7. 다른 여행지의 `nearby` 단락에 `place: "<slug>"` 카드로 새 여행지를 연결하면 좋다. 원본을 고쳤으니 번역본도 맞춘다.
+8. `content.mjs stamp data/meta.json` → `node scripts/build.mjs` → `content.mjs check --dir _site/v2` → `content.mjs images --dir _site/v2 --ids <새 번호>` → 커밋.
 
 ### 6.2 수정·삭제·사진 교체
 
-- **내용 수정:** 원본(ko)을 고치고 번역본을 맞춘 뒤 빌드·커밋한다. version 이 바뀌어 클라이언트가 다음 확인 때 새로 받는다.
+- **내용 수정:** 출처를 비교해 `sources/` 를 고치고, 원본(ko)을 고치고 번역본을 맞춘 뒤 `data_version` 을 찍고 빌드·커밋한다. version 이 바뀌어 클라이언트가 다음 확인 때 새로 받는다.
 - **삭제:**
   1. 모든 언어의 JSON 과 그 여행지의 사진을 지운다.
   2. 다른 여행지에서 그 slug 를 가리키는 `place`·`place_link` 를 모든 언어에서 지우거나 바꾼다. 남아 있으면 빌드가 실패한다.
@@ -185,7 +194,7 @@ ph-travel-api/
 
 "빌드 성공"만으로 완료라고 하지 않는다. 바꾼 범위에 맞춰 아래를 확인한다.
 
-1. **빌드:** `node scripts/build.mjs` 가 exit 0 으로 끝나는지, version 이 기대와 맞는지 본다.
+1. **빌드:** `node scripts/build.mjs` 가 exit 0 으로 끝나는지, version 이 기대와 맞는지 본다. 이어서 `content.mjs check --dir _site/v2` 가 통과하는지 본다.
    - 내용·meta 를 바꿨으면 version 이 바뀌어야 한다.
    - 문서·스킬만 바꿨으면 version 이 그대로여야 한다.
 2. **로컬 응답:** `_site` 를 로컬 서버로 띄워 확인한다.
@@ -203,9 +212,8 @@ ph-travel-api/
    - 웹 렌더러로 모든 언어의 100곳을 그려 예외가 없는지 본다.
    - Flutter 렌더러는 빈 Flutter 프로젝트에 넣어 `flutter analyze` 와 위젯 테스트를 돌린다(100곳, 아랍어 RTL 포함).
 7. **배포 후:**
-   - `gh run list` 가 `completed success` 인지 본다.
-   - 공개 manifest version 이 로컬 빌드와 같은지 본다.
-   - JSON·사진의 content-type 을 본다.
+   - `r2.mjs deploy` 끝의 `verify` 가 통과했는지 본다 — 공개 manifest·meta 의 version, 모든 언어 파일·사진의 ETag·content-type.
+   - (옛 주소) `gh run list` 가 `completed success` 이고 Pages 의 manifest version 이 같은지 본다.
 
 ## 8. 스킬 고치기와 배포
 
@@ -233,11 +241,11 @@ ph-travel-api/
    - `build.mjs` 의 좌표 범위 검사와 통화(예: JPY)
    - 스킬 검사·묶음(`checkSkill`·`packSkill`)은 뺀다. 스킬 원본은 한 곳에만 둔다.
    - 파일 구조·노드 모양·표시 방법·단락은 그대로 둔다. 같은 DB 스키마와 렌더러로 쓰기 위해서다.
-3. `data/<lang>/` 에 여행지 JSON 과 사진을 넣고 빌드한다. 그다음 Pages 를 켠다(`gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`).
+3. `data/<lang>/` 에 8개 언어의 여행지 JSON 과 사진을 넣고 빌드한다. Pages 는 켜지 않는다 — 배포는 R2 다(`r2.mjs deploy --prefix jp-travel-api/v2/`).
 4. 이 스킬의 `scripts/apis.json` 에 나라를 추가하고 `metadata.version` 을 올린다.
 
    ```json
-   "jp": { "name": "일본", "name_en": "Japan", "base": "https://thruthesky.github.io/jp-travel-api/v2/", "repo": "thruthesky/jp-travel-api", "schema": 2, "currency": "JPY" }
+   "jp": { "name": "일본", "name_en": "Japan", "base": "https://files.withcenter.com/jp-travel-api/v2/", "r2_prefix": "jp-travel-api/v2/", "repo": "thruthesky/jp-travel-api", "schema": 2, "currency": "JPY" }
    ```
 
 5. `node scripts/travel.mjs --country jp info` 로 확인한다. DB 는 나라별로 따로 만든다(`travel-db.mjs build --country jp`).

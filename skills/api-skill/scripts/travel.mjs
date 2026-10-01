@@ -296,7 +296,7 @@ switch (command) {
     const get = (k) => db.prepare('SELECT value FROM meta WHERE key = ?').get(k)?.value;
     out([
       `나라: ${bundle.code}${bundle.api ? ` (${bundle.api.name})` : ''} · 주소: ${base}`,
-      `schema ${get('schema')} · version ${get('version')} · 여행지 ${get('count')}곳 · API 빌드 ${get('generated_at')}`,
+      `schema ${get('schema')} · version ${get('version')} · 여행지 ${get('count')}곳 · 정보 기준 ${get('data_version') ?? '(data_version 없음)'} · API 빌드 ${get('generated_at')}`,
       `API 언어: ${bundle.manifest.languages.join(', ')} (원본 ${bundle.manifest.source_language}, 대체 ${bundle.manifest.fallback_language})`,
       `DB 언어: ${JSON.parse(get('languages')).join(', ')} · DB ${path} (${(statSync(path).size / 1048576).toFixed(1)}MB, ${rebuilt ? '방금 만듦' : '그대로 씀'}) · JSON ${bundle.from === 'download' ? '새로 받음' : bundle.from === 'cache' ? '캐시' : '로컬 폴더'}`,
     ].join('\n'));

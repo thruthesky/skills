@@ -8,7 +8,7 @@
 ## 목차
 
 1. 이 형태가 맞는 정보, 맞지 않는 정보
-2. 형태 — 여덟 가지 약속
+2. 형태 — 아홉 가지 약속
 3. 이름 정하기
 4. 설계 — 코드를 쓰기 전에 정할 것
 5. 그대로 가져가는 것과 고치는 것
@@ -25,23 +25,24 @@
 | 편집자가 쓰는 읽기 전용 정보 (안내·소개·가이드) | 사용자가 쓰는 글 (게시글·댓글·후기) |
 | 하루에 몇 번 이하로 바뀐다 | 실시간 값 (환율·날씨·재고·예약) |
 | 항목 수십~수천 건 | 수만 건 이상 — 언어 파일 하나가 수십 MB 가 된다 |
-| 모두에게 같은 내용, 공개해도 되는 내용 | 사람마다 다른 내용, 비공개 자료 (Pages 는 공개다) |
+| 모두에게 같은 내용, 공개해도 되는 내용 | 사람마다 다른 내용, 비공개 자료 (R2 공개 주소는 누구나 받는다) |
 | 여러 언어, 웹·앱이 같은 데이터를 제각기 디자인 | 한 화면에서만 쓰는 짧은 설정 값 |
 
 맞지 않는 정보는 필고의 DB·API(`info.*` 등)로 다룬다. 이 형태로 억지로 옮기지 않는다.
 
-## 2. 형태 — 여덟 가지 약속
+## 2. 형태 — 아홉 가지 약속
 
 분야가 달라도 아래는 같게 둔다. 이것이 "같은 형태"의 뜻이다.
 
-1. **저장소 하나 = API 하나 = 분야 하나.** 서버 코드·DB 가 없는 정적 API 다. `main` push 가 곧 배포다(GitHub Actions → Pages).
+1. **저장소 하나 = API 하나 = 분야 하나.** 서버 코드·DB 가 없는 정적 API 다. GitHub 저장소에 원본을 두고, 배포는 Cloudflare R2 업로드다(`r2.mjs deploy` → `https://files.withcenter.com/<저장소>/v<schema>/`).
 2. **원본은 항목마다 파일 하나다.** `data/<원본 언어>/<id 3자리>-<slug>.json`, 사진은 `data/images/<같은 이름>[-2|-3].webp`.
-3. **규격은 `data/meta.json` 한 곳에 있다.** 언어, 값 목록(key + 모든 언어 이름), 속성(`fields`), 단락(`sections`), 표시 방법(`display.types`). 검사·번역·화면이 모두 이 파일을 읽는다. 그래서 문서와 데이터가 어긋나지 않는다.
+3. **규격은 `data/meta.json` 한 곳에 있다.** 언어, 값 목록(key + 모든 언어 이름), 속성(`fields`), 단락(`sections`), 표시 방법(`display.types`), 정보를 가공한 UTC 시각(`data_version`). 검사·번역·화면이 모두 이 파일을 읽는다. 그래서 문서와 데이터가 어긋나지 않는다.
 4. **값은 노드, 글은 조각이다.** 속성 값은 `{ "type": … }` 객체다. 글은 `children` 조각 배열이고 이어 붙이면 원문이다. 마크다운·HTML 을 쓰지 않는다. 본문은 key·순서가 정해진 단락(`sections`)이다.
 5. **빌드가 곧 검사다.** `node scripts/build.mjs` 는 하나라도 어기면 아무것도 쓰지 않고 exit 1 이다. 외부 npm 패키지가 없다.
-6. **언어는 파일 이름으로 나누고, 모든 언어의 모양이 같다.** 원본 언어 하나 + 번역본이다. 언어마다 다른 것은 `translate: true` prop 과 `label` 뿐이다. 거르기는 언어 공통 key(`value`)·숫자로 한다.
-7. **version 은 전체에 하나인 내용 해시다.** `manifest.json` → `meta.json` → `<항목들>.<lang>.json` + `images/`. 클라이언트는 version 이 바뀌었을 때만 받는다.
-8. **쓰는 쪽은 받아서 넣어 쓴다.** JSON → SQLite(언어 공통 표 + 언어별 글 + FTS5 trigram) → 조회 구현 셋(Node·PHP·Dart, 같은 결과) + 블록 렌더러 둘(웹·Flutter). 이 지식과 도구를 스킬 하나로 묶어 Pages 로 나눠 준다.
+6. **언어는 파일 이름으로 나누고, 모든 언어의 모양이 같다.** 원본 언어 하나 + 번역본이고, 배포는 8개 언어(ar·en·ja·ko·ru·th·vi·zh) 모두다. 언어마다 다른 것은 `translate: true` prop 과 `label` 뿐이다. 거르기는 언어 공통 key(`value`)·숫자로 한다.
+7. **version 은 전체에 하나인 내용 해시다.** `manifest.json` → `meta.json` → `<항목들>.<lang>.json` + `images/`. 클라이언트는 version 이 바뀌었을 때만 받는다. `data_version` 은 사람이 찍는 정보 기준 시각이라 비교에 쓰지 않는다.
+8. **쓰는 쪽은 받아서 넣어 쓴다.** JSON → SQLite(언어 공통 표 + 언어별 글 + FTS5 trigram) → 조회 구현 셋(Node·PHP·Dart, 같은 결과) + 블록 렌더러 둘(웹·Flutter). 이 지식과 도구를 스킬 하나로 묶어 thruthesky/skills 로 나눠 준다.
+9. **콘텐츠는 다섯 가지를 지킨다.** 여러 출처 비교 조사, 정보와 맞는 사진, 8개 언어, `meta.json` 규격과 `data_version`, R2 배포 — [pipeline.md](pipeline.md).
 
 왜 이렇게 정했는지는 [history.md](history.md) §2~6 에 있다. 약속을 바꾸려면 먼저 읽는다.
 
@@ -54,7 +55,7 @@
 | 저장소 | `ph-travel-api` | `ph-night-api` — `<나라>-<분야>-api` |
 | 항목 낱말 | `place` · `places` | `venue` · `venues` |
 | 출력 파일 · manifest 키 | `places.<lang>.json` · `places` | `venues.<lang>.json` · `venues` |
-| 공개 주소 | `…/ph-travel-api/v2/` | `…/ph-night-api/v1/` — 새 API 는 `SCHEMA = 1` 에서 시작한다 |
+| 공개 주소 | `…/ph-travel-api/v2/` (R2 prefix `ph-travel-api/v2/`) | `https://files.withcenter.com/ph-night-api/v1/` — 새 API 는 `SCHEMA = 1` 에서 시작한다. `apis.json` 에 `r2_prefix` |
 | DB 파일 · 표 | `travel.db` · `places` `place_texts` `place_fts` … | `night.db` · `venues` `venue_texts` `venue_fts` … |
 | 스킬 | `api-skill` (Claude Code `/api-skill:api-skill`) | 이 스킬에 분야를 더할지, `night-api-skill` 처럼 따로 만들지 사용자에게 먼저 확인한다. 나라는 `apis.json` 으로 |
 | 조회 도구 | `travel.mjs` · `travel-db.mjs` | `night.mjs` · `night-db.mjs` |
@@ -81,9 +82,9 @@
 5. **단락(`sections`).** key·순서·제목(모든 언어)·아이콘을 고정한다. 단락마다 **어떤 블록으로 쓰는지**도 정한다(여행은 `data/README.md` §3 표 — 일정은 `tabs`+`stepper`, 비용은 `pricing` …). 이 표가 있어야 수백 건이 같은 모양이 된다.
 6. **항목끼리의 링크.** `card.place`·`place_link` 로 같은 API 안의 항목을 잇는다. 다른 API 의 항목(여행지 ↔ 업소)은 slug 를 검사할 수 없으니 `link` 의 주소로 잇거나 넣지 않는다.
 7. **품질 기준을 숫자로.** 본문 최소 글자 수, 목록 개수(태그 3~6개 …), 값 범위(좌표·등급·통화). 숫자로 정한 것만 빌드가 막을 수 있다.
-8. **사진의 출처와 라이선스.** 공개 배포해도 되는 사진만 쓴다(여행은 Wikimedia Commons 의 CC·퍼블릭 도메인). `credit`·`source` 를 채울 수 없는 사진은 쓰지 않는다. 사람 얼굴·업소 내부처럼 권리가 얽힌 분야는 사진 방침부터 사용자와 정한다.
-9. **언어.** 원본 언어(한국어)와 대체 언어(en), 배포할 언어 목록. 처음에는 원본 + 대체 언어로 시작해도 된다 — 번역 폴더가 없는 언어는 빌드가 배포에서 뺀다.
-10. **사실의 근거와 유효 기간.** 요금·운영 시간·규정처럼 바뀌는 값은 "기준 연도·대략치"로 쓰고, 어디서 확인했는지 남긴다. 법·안전과 닿는 분야는 넣지 않을 내용의 기준을 사용자와 먼저 정한다.
+8. **사진의 출처와 라이선스.** 모든 항목에 정보와 맞는 정확한 사진이 있어야 한다([pipeline.md](pipeline.md) §4) — 맞는 사진을 구할 수 없는 항목은 넣지 않는다. 공개 배포해도 되는 사진만 쓴다(여행은 Wikimedia Commons 의 CC·퍼블릭 도메인). `credit`·`source` 를 채울 수 없는 사진은 쓰지 않는다. 사람 얼굴·업소 내부처럼 권리가 얽힌 분야는 사진 방침부터 사용자와 정한다.
+9. **언어.** 원본 언어(한국어)와 대체 언어(en). 배포할 언어는 8개(ar·en·ja·ko·ru·th·vi·zh) 모두다. 서너 건으로 뚫을 때는 원본 + en 으로 돌려도 되지만, 배포 전에 8개를 채운다 — `content.mjs check`·`r2.mjs` 가 막는다.
+10. **사실의 근거와 유효 기간.** 요금·운영 시간·규정처럼 바뀌는 값은 출처 2곳 이상을 비교해 "기준 연도·대략치"로 쓰고, 출처를 `sources/<id>-<slug>.json` 에 남긴다([pipeline.md](pipeline.md) §3). 법·안전과 닿는 분야는 넣지 않을 내용의 기준을 사용자와 먼저 정한다.
 
 ## 5. 그대로 가져가는 것과 고치는 것
 
@@ -93,9 +94,11 @@
 
 | 파일 | 그대로 | 분야에 맞게 고친다 |
 |------|--------|--------------------|
-| `.github/workflows/deploy.yml` · `.gitignore` | 전부 | — |
+| `.gitignore` | 전부 | — |
+| `.github/workflows/deploy.yml` | 가져가지 않는다 — 배포는 R2(`r2.mjs`)다 | — |
+| `sources/` | 근거 기록 형식([pipeline.md](pipeline.md) §3.5) | 항목마다 새로 쓴다 |
 | `data/meta.json` | `languages` · `display` 의 types 48개·`prop_kinds`·`common_props`·`inline`·`css_variables` | `title`·`description`, 값 목록(`categories`·`island_groups`·`regions`·`difficulties` 자리), `fields`, `sections`, `display.layouts`(카드·상세에 놓을 속성) |
-| `scripts/build.mjs` | 노드 검사(`checkNode`·`checkProps`·`checkValue`·`checkStyle`), 번역 비교(`compareNode`·`compareValue`), 사진(`webpSize`·`imageInfo`·`resolveImages`), 글 뽑기(`texts`·`visibleText`), 스킬 검사·묶기, 번역 중인 언어 빼기, version·manifest 쓰기 | `SKILL` 이름, `checkMeta` 의 값 목록 이름(두 군데)과 목록끼리의 관계, `parsePlace` 의 목록 값·숫자 범위·통화·본문 최소 글자 수·언어 무관 속성(`title_en`), 출력 파일 이름·manifest 키, 끝의 안내 문구 |
+| `scripts/build.mjs` | 노드 검사(`checkNode`·`checkProps`·`checkValue`·`checkStyle`), 번역 비교(`compareNode`·`compareValue`), 사진(`webpSize`·`imageInfo`·`resolveImages`), 글 뽑기(`texts`·`visibleText`), 스킬 검사·묶기, 번역 중인 언어 빼기, version·manifest 쓰기 | `SKILL` 이름, `checkMeta` 의 값 목록 이름(두 군데)과 목록끼리의 관계, `data_version` 형식 검사(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$` — ph-travel-api 에는 아직 없다), `parsePlace` 의 목록 값·숫자 범위·통화·본문 최소 글자 수·언어 무관 속성(`title_en`), 출력 파일 이름·manifest 키, 끝의 안내 문구 |
 | `scripts/i18n.mjs` | 뽑기·검사·쓰기·맞추기·쓰기 형식 — `meta.json` 을 따라 움직인다 | 언어 무관 속성 예외(`title_en`), 값 목록에서 채우는 속성(`difficulties`), 번역 파일 머리 줄 |
 | `data/README.md` | 구성(원칙·속성·단락·조각·사진·품질·번역) | 속성 표, 단락별 블록 표, 품질 기준 |
 | `README.md` · `AGENTS.md`(+ `CLAUDE.md` 링크) | 구성 | 내용 |
@@ -130,9 +133,9 @@
 4. **번역 한 번** — 서너 건을 대체 언어(en)로 옮겨 `scripts/i18n.mjs` 의 export → check → import 가 도는지 본다. 번역 지침과 어휘집을 이때 만든다.
 5. **스킬** — 스키마 → DB 만들기 → 조회 도구. §4-2 의 질문 열 개를 조회 도구로 실제로 답해 본다. 답이 안 나오면 1로 돌아간다.
 6. **조회 구현과 렌더러** — PHP·Dart 를 옮기고 세 구현의 결과를 비교한다. 카드·상세 배치를 고친다.
-7. **항목 채우기** — 원본 언어로 전체를 쓴다. 사실 확인과 사진을 함께 한다. 여러 파일에 걸친 사실(요금·노선·규정)은 교차 점검으로 맞춘다.
-8. **번역 채우기** — 언어마다 전체를 옮긴다. 폴더를 만들면 그 언어는 모든 항목이 있어야 빌드가 통과한다.
-9. **배포** — Pages 를 켠다(`gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`). push 는 사용자가 요청할 때만 한다. 공개 주소의 version 이 로컬 빌드와 같은지 본다.
+7. **항목 채우기** — 원본 언어로 전체를 쓴다. 사실 확인(출처 2곳 이상, `sources/`)과 사진(정보와 맞는 사진, `content.mjs images`)을 함께 한다([pipeline.md](pipeline.md) §3·§4). 여러 파일에 걸친 사실(요금·노선·규정)은 교차 점검으로 맞춘다.
+8. **번역 채우기** — 8개 언어 모두 전체를 옮긴다. 폴더를 만들면 그 언어는 모든 항목이 있어야 빌드가 통과한다.
+9. **배포** — `content.mjs stamp` → `build.mjs` → `content.mjs check` → `r2.mjs deploy --prefix <저장소>/v1/` → 공개 주소 확인(`verify`). `apis.json` 에 `r2_prefix` 를 더한다. 배포와 push 는 사용자가 요청할 때만 한다([pipeline.md](pipeline.md) §7).
 10. **넣어 쓰기** — 웹·앱에 넣는다([embedding.md](embedding.md) 의 절차 그대로). 필고 저장소에는 서브모듈로 두고, 이 저장소에서 먼저 커밋·push 한 뒤 포인터를 커밋한다.
 11. **기록** — `history.md` 에 결정과 남은 일을 적는다.
 
@@ -153,6 +156,7 @@
 
 "빌드 성공"만으로 끝났다고 하지 않는다. 절차는 [maintain.md](maintain.md) §7 과 같고, 새 API 에서 꼭 볼 것은 다음이다.
 
+- **배포 규격을 본다.** `content.mjs check`(8개 언어·`data_version`·사진·credit)와 `content.mjs images`(사진을 Commons 정보와 대조), 배포 뒤 `r2.mjs verify`.
 - **막는지 본다.** 스크래치 폴더에 복사해 일부러 어긴 파일(모르는 type, 필수 키 누락, 번역본 모양 불일치, 없는 slug 링크, 범위 밖 숫자)을 넣는다. exit 1 이고 출력 JSON 이 없어야 한다.
 - **version 이 결정적인지 본다.** 같은 내용으로 두 번 빌드해 version 이 같아야 한다. 문서만 고친 빌드도 같아야 한다.
 - **질문으로 본다.** §4-2 의 질문을 조회 도구로 답한다. 언어를 바꿔서도 한다(띄어쓰기 없는 언어 하나, 아랍어).
@@ -172,7 +176,9 @@
 - **번역 지침과 어휘집을 git 에 넣는다.** 고유명사·분류 이름을 언어마다 한 가지로 맞추는 기준이다. 작업 폴더(`_i18n/`)에만 두면 다음 작업자가 볼 수 없다.
 - **파이프라인은 자리 표시 번역으로 먼저 끝까지 돌린다.** 실제 번역을 기다리지 않고 빌드·DB·조회·렌더러를 검증할 수 있다.
 - **없앤 항목의 번호는 다시 쓰지 않는다.** id 는 링크·캐시·DB 키다.
-- **사진 용량을 본다.** 한 장 약 100KB 로 572장이 57MB 다. Pages 는 1GB 까지다.
+- **사진 용량을 본다.** 한 장 약 100KB 로 572장이 57MB 다. R2 는 바뀐 파일만 올리므로 사진을 다시 만들지 않는다(같은 파일이면 MD5 가 같다).
+- **대표 사진은 장소가 보이는 사진으로 고른다.** 파밀라칸 섬의 대표 사진이 섬이 아니라 돌고래였다. 생물·활동 사진은 gallery 에 둔다.
+- **근거는 git 에 둔다.** 200곳을 다시 확인한 근거를 git 밖 작업 폴더에 두었다가 잃었다. 처음부터 `sources/` 에 쓴다.
 - **검색 순서의 마지막 기준(id)까지 정한다.** Dart 의 정렬은 안정 정렬이 아니다. 이름으로 찾으면 그 항목이 맨 앞에 오도록 제목 일치를 점수보다 앞에 둔다.
 - **운영 DB 에 덮어쓰지 않는다.** 옆 이름으로 올려 검사한 뒤 `mv` 로 바꾼다. 사진은 먼저 더하고 나중에 지운다([embedding.md](embedding.md) §3.2).
 - **DB 도구는 FTS5 가 들어 있는 Node 로 돌린다.** Node 24 에는 있고, Node 22.14 에는 없다(`no such module: fts5`).

@@ -1,8 +1,8 @@
 ---
 name: api-skill
-description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 en·zh·ja·ko·th·vi·ru·ar, 앞으로 다른 나라도 추가) 전용 스킬. JSON 을 받아 SQLite(travel.db)로 바꿔 언어별 전문 검색·인덱스로 여행지를 찾아 추천·일정·비용·가는 방법·가까운 곳을 답하고, 웹사이트(PHP)·Flutter 앱·정적 웹이 원격 API 대신 데이터를 넣어(임베딩) 쓰도록 DB·파일 만들기, 조회 코드(PHP·Dart), 블록 렌더러(tabs·accordion·card·stepper·pricing 등)를 제공하며, ph-travel-api 저장소의 여행지 추가·번역·검사·배포를 돕는다. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월에 갈 만한 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·여행 API·places.json·meta.json·travel.db·SQLite 여행 DB 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지 데이터 추가·수정·번역·검사·배포, (4) 여행이 아닌 다른 정보(밤문화·맛집·병원·비자·생활 정보 등, 예: ph-night-api)를 ph-travel-api 와 같은 형태 — 다국어 블록 JSON 정적 API·빌드 검사·SQLite·조회 코드·스킬 — 로 새로 만들거나 기존 자료를 그 형태로 가공할 때(청사진 references/blueprint.md), (5) 사용자가 api-skill 을 부를 때(Claude Code 플러그인 /api-skill:api-skill, Codex $api-skill) — 인자가 update 면 스킬을 최신으로 갱신한다.
+description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 ar·en·ja·ko·ru·th·vi·zh)와 같은 형태의 정보 API 전용 스킬. JSON 을 SQLite(travel.db)로 바꿔 언어별 전문 검색으로 여행지 추천·일정·비용·가는 방법·가까운 곳을 답하고, PHP 웹·Flutter 앱·정적 웹에 데이터를 넣는 DB·조회 코드(PHP·Dart)·블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 정보와 맞는 사진 검증, 8개 언어 번역, meta.json 의 data_version(UTC), Cloudflare R2 배포. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·places.json·meta.json·travel.db 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지·정보 콘텐츠를 만들거나 고치거나 가공·검색·분석·문서화·번역·사진·검사·배포(R2)할 때, (4) 다른 정보(밤문화·맛집·병원·비자 등, 예컨대 ph-night-api)를 같은 형태로 새로 만들 때, (5) 사용자가 api-skill 을 부를 때(/api-skill:api-skill, $api-skill) — 인자가 update 이거나 사용자가 "/api-skill update"·"api-skill 업데이트"라고 하면 스킬을 최신으로 갱신한다.
 metadata:
-  version: "2026.09.30.2"
+  version: "2026.10.01"
   repo: "https://github.com/thruthesky/skills"
   api_repo: "https://github.com/thruthesky/ph-travel-api"
 ---
@@ -11,15 +11,23 @@ metadata:
 
 필리핀 여행지 198곳을 **8개 언어 블록 JSON** 으로 내주는 정적 API 와, 그것을 받아 **SQLite 로 바꿔 넣어 쓰는** 방법이다.
 나라 목록은 `scripts/apis.json` 이다(지금은 `ph` 하나). 이 문서의 상대 경로는 모두 **스킬 폴더**(이 SKILL.md 가 있는 폴더) 기준이다.
-ph-travel-api 는 다른 정보를 같은 형태로 만들 때의 **본보기**이기도 하다(§7).
+ph-travel-api 는 다른 정보를 같은 형태로 만들 때의 **본보기**이기도 하다(§7). 콘텐츠를 만들거나 고칠 때는 §8 의 다섯 가지를 반드시 지킨다.
 
 ## 1. 인자 처리
 
 | 인자 | 할 일 |
 |------|-------|
-| `update` | `bash <스킬 폴더>/scripts/update.sh` 를 실행하고 결과를 그대로 전한다. 결과는 네 가지 중 하나다 — 갱신됨(옛 버전 → 새 버전), 이미 최신, 원본 저장소라 `git pull` 안내, Claude Code 플러그인이라 `claude plugin update` 안내. 여기서 끝낸다 |
+| `update` | `bash <스킬 폴더>/scripts/update.sh` 를 실행하고 결과를 그대로 전한다. 여기서 끝낸다 (아래) |
 | (없음) | 이 스킬로 할 수 있는 일(§3 표)을 세 줄로 알리고, 예시 요청 두세 개를 보여 준다 |
 | 그 밖 | 사용자의 요청이다. §3 에서 작업 종류를 고른다 |
+
+**update — 스킬을 최신으로:**
+- 사용자가 `/api-skill update`·`/api-skill:api-skill update`·`$api-skill update`·"api-skill 업데이트"라고 하면 모두 이 인자다. Claude Code 의 정식 이름은 `/api-skill:api-skill` 이지만, `/api-skill update` 라고 써도 같은 뜻으로 처리한다.
+- `update.sh` 는 설치 방식을 스스로 알아내 바꾼다.
+  - **Claude Code 플러그인:** 마켓플레이스 목록을 받고, 설치된 범위(user·project·local)마다 `claude plugin update` 를 실행한다. project·local 은 그 프로젝트 폴더에서 실행한다. 새 판은 Claude Code 를 다시 시작하면 적용된다.
+  - **폴더 설치**(Codex·Gemini CLI 등): GitHub 묶음을 받아 스킬 폴더를 통째로 바꾼다. 새 내용은 다음 대화부터 적용된다. 지금 대화에서 쓰려면 SKILL.md 를 다시 읽는다.
+  - **원본 저장소**(thruthesky/skills 체크아웃): 작업 트리가 깨끗하고 `main` 일 때만 `git pull --ff-only` 한다.
+- 결과는 "갱신했다(옛 버전 → 새 버전)" 또는 "이미 최신이다"다. 옛 이름의 스킬 폴더(`travel-api-skill`)가 남아 있으면 알림이 나온다. 그 폴더를 지울지는 사용자에게 묻는다.
 
 ## 2. 기본 방식 — 받아서 SQLite 로 넣어 쓴다
 
@@ -43,7 +51,9 @@ ph-travel-api 는 다른 정보를 같은 형태로 만들 때의 **본보기**�
 | SQL·스키마·검색 규칙 | — | [database.md](references/database.md) |
 | 파일 모양·필드·다국어 계약 | — | [api.md](references/api.md) |
 | 화면 그리기·디자인 | `assets/renderer.mjs`·`assets/travel_blocks.dart` 를 가져다 고친다 | [rendering.md](references/rendering.md) |
-| ph-travel-api 저장소 일 — 여행지 추가·수정·번역, type 추가, 빌드·배포 | §8 절대 규칙을 지키며 절차를 따른다 | [maintain.md](references/maintain.md) |
+| **콘텐츠 만들기·가공·검색→분석→문서화** — 여행지·정보 추가·수정, 사실 확인, 사진, 번역 | §8 다섯 가지 — 조사·사진·8개 언어·data_version·R2 | [pipeline.md](references/pipeline.md) |
+| **배포** | `content.mjs check` → `r2.mjs deploy` → `verify` (Cloudflare R2) | [pipeline.md](references/pipeline.md) §7 |
+| ph-travel-api 저장소 일 — type 추가, 빌드 규격, 저장소 구조 | §9 절대 규칙을 지키며 절차를 따른다 | [maintain.md](references/maintain.md) |
 | **다른 정보**(밤문화·맛집·병원·비자 …)를 같은 형태로 제공·개발·가공 | §7 — ph-travel-api 를 본보기로 설계 → 뼈대 복사 → 작게 끝까지 → 채우기 | [blueprint.md](references/blueprint.md) |
 | 같은 여행 정보를 다른 나라로 | 같은 구조의 저장소 + `apis.json` 한 줄 | [maintain.md](references/maintain.md) §9 |
 | 왜 이 구조인가, 남은 일은 | — | [history.md](references/history.md) |
@@ -116,12 +126,13 @@ travelq info                                                # version·언어·D
 
 자세한 것은 [api.md](references/api.md) 에 있다.
 
-- **주소:** `https://thruthesky.github.io/ph-travel-api/v2/`
+- **주소:** 지금 공개 주소는 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)다.
+  - 배포는 이제 Cloudflare R2 로 한다(§8). R2 첫 배포를 확인하면 `https://files.withcenter.com/ph-travel-api/v2/` 로 바뀌고, 그때 `apis.json` 의 `base` 를 바꾼다([history.md](references/history.md) 남은 일).
   - `manifest.json` — `{ version, languages, source_language: ko, fallback_language: en, meta, places: { <lang>: 파일 } }`
-  - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 속성·단락, 표시 방법 `display`(type 48개)
+  - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 속성·단락, 표시 방법 `display`(type 48개), 정보를 가공한 UTC 시각 `data_version`
   - `places.<lang>.json` — 그 언어의 여행지 전체
   - `images/*.webp` — 사진
-- **version 은 전체에 하나다.** 바뀌었을 때만 다시 받는다.
+- **version 은 전체에 하나인 내용 해시다.** 바뀌었을 때만 다시 받는다. `meta.data_version`(가공한 UTC 시각)은 화면의 "정보 기준일"용이고 비교에 쓰지 않는다.
 - **모든 언어 파일은 모양이 같다.**
   - 언어 무관 값(id·slug·좌표·예산 숫자·달·사진·링크·분류 key)이 같다.
   - 다른 것은 `translate: true` prop(글)과 `label` 뿐이다.
@@ -168,11 +179,11 @@ travelq info                                                # version·언어·D
 
 | 층 | 약속 | 본보기 (ph-travel-api 저장소) |
 |----|------|-------------------------------|
-| 원본 | 항목마다 JSON 파일 하나 + 사진. 규격은 `meta.json` 한 곳에 둔다 | `data/ko/*.json` · `data/meta.json` · `data/README.md` |
+| 원본 | 항목마다 JSON 파일 하나 + 정보와 맞는 사진 + 근거 기록. 규격은 `meta.json` 한 곳에 두고 `data_version` 을 적는다 | `data/ko/*.json` · `data/meta.json` · `data/README.md` · `sources/` |
 | 모양 | 값은 노드, 글은 조각(`children`), 본문은 key·순서가 고정된 단락. type 48개를 그대로 쓴다 | `data/meta.json` 의 `fields`·`sections`·`display` |
 | 빌드 | 빌드가 곧 검사다. 어기면 아무것도 쓰지 않고 exit 1. 외부 패키지 없음. version 은 내용 해시 하나 | `scripts/build.mjs` |
-| 다국어 | 원본 언어 하나 + 모양이 같은 번역본. 언어는 파일 이름으로 나누고, 거르기는 언어 공통 key·숫자로 한다 | `scripts/i18n.mjs` · `data/README.md` §7 |
-| 배포 | `main` push → Actions → Pages. `manifest.json` → `meta.json` → `<항목들>.<lang>.json` + `images/` | `.github/workflows/deploy.yml` |
+| 다국어 | 원본 언어 하나 + 모양이 같은 번역본, 배포는 8개 언어(ar·en·ja·ko·ru·th·vi·zh) 모두. 언어는 파일 이름으로 나누고, 거르기는 언어 공통 key·숫자로 한다 | `scripts/i18n.mjs` · `data/README.md` §7 |
+| 배포 | Cloudflare R2 — `https://files.withcenter.com/<저장소>/v<schema>/`. 사진 → `<항목들>.<lang>.json` → `meta.json` → `manifest.json` 순서로 올린다 | 이 스킬의 `scripts/r2.mjs` |
 | 쓰기 | 받아서 SQLite 로 넣어 쓴다. 언어 공통 표 + 언어별 글 + FTS5 trigram, 조회 구현 셋(Node·PHP·Dart), 렌더러 둘 | 이 스킬의 `scripts/` · `assets/` |
 | 스킬 | 이 스킬 이름은 `api-skill` 이다. 새 분야를 이 스킬에 더할지, 스킬을 따로 만들지는 사용자에게 먼저 확인한다. 나라는 `apis.json`. 이 SKILL.md 의 절 구성을 따른다 | 이 폴더 |
 
@@ -181,31 +192,64 @@ travelq info                                                # version·언어·D
 - **코드보다 설계가 먼저다.** 항목의 정의, 사람들이 물을 질문 열 개, 거르기에 쓸 언어 공통 값, 속성, 단락과 단락별 블록, 사진 방침을 정해 사용자에게 확인받는다(blueprint §4).
 - **서너 건으로 끝까지 뚫은 뒤 채운다.** 원본 → 빌드 → 번역 → DB → 조회 → 화면이 한 번 돌고 나서 전체를 쓴다(blueprint §6).
 - **공통 부분은 새 저장소에서 고치지 않는다.** 노드 검사·번역 도구·검색 규칙·블록 렌더러·type 목록은 ph-travel-api 에서 먼저 고쳐 옮긴다. type 은 추가만 한다. 분야마다 고치는 곳은 blueprint §5 의 표에 있다.
-- 새 저장소에서도 §8 의 절대 규칙 1~4 가 그대로다.
+- 새 저장소에서도 §8 의 다섯 가지와 §9 의 절대 규칙 1~4 가 그대로다.
 
-## 8. ph-travel-api 저장소에서 일할 때 — 절대 규칙
+## 8. 콘텐츠를 만들 때 — 반드시 지킬 다섯 가지
+
+여행지든 다른 정보든, 콘텐츠를 만들거나 고치거나 기존 자료를 가공할 때(조사 → 만들기·가공 → 분석 → 문서화 → 배포) 다섯 가지를 모두 지킨다. 절차·기준·근거 기록 형식은 [pipeline.md](references/pipeline.md) 에 있다. 시작하기 전에 읽는다.
+
+1. **인터넷 검색을 넉넉히 하고, 같은 사실을 여러 출처에서 비교해 가공한다.**
+   - 요금·시간표·노선·규정·폐쇄처럼 바뀌는 사실은 서로 다른 출처 2곳 이상, 그중 하나는 공식(운영 주체·정부)이거나 12개월 안의 공신력 있는 출처여야 한다.
+   - 검색 결과 요약만 보지 말고 페이지 본문과 날짜를 확인한다. 출처와 판단은 데이터 저장소의 `sources/<id>-<slug>.json` 에 남긴다(git 에 넣고 배포하지 않는다).
+2. **모든 항목에 사진을 넣고, 사진은 정보와 맞는 정확한 사진이어야 한다.**
+   - Commons 파일 페이지의 설명·분류·촬영 위치를 보고, 사진을 직접 열어 본문이 말하는 그곳·그 모습인지 확인한다.
+   - `content.mjs images` 로 촬영 위치·라이선스·작가를 대조한다. 맞는 사진을 구할 수 없으면 그 항목을 넣지 않는다.
+3. **8개 언어로 번역한다 — `ar`·`en`·`ja`·`ko`·`ru`·`th`·`vi`·`zh`.** 원본(ko)을 먼저 고치고 `i18n.mjs` 로 맞춘다. 하나라도 빠지면 `content.mjs check` 와 `r2.mjs` 가 배포를 막는다.
+4. **`meta.json` 의 모든 형식을 따르고, 정보를 가공한 UTC 시각을 `data_version` 으로 적는다.**
+   - 노드·속성·단락·값 목록은 `meta.json` 규격 그대로 쓴다(`build.mjs` 가 검사한다).
+   - 가공·수정한 커밋마다 `content.mjs stamp data/meta.json` → `"data_version": "2026-10-01T05:12:33Z"` 를 찍고 다시 빌드한다.
+   - 키 이름은 `version` 이 아니다. `version` 은 빌드가 만드는 내용 해시라서, 원본에 넣으면 해시를 덮어 받는 쪽 검사가 깨진다.
+5. **배포는 Cloudflare R2 로 한다.** 웹·앱이 `https://files.withcenter.com/<저장소>/v<schema>/` 에서 곧바로 받는다.
+   - R2 업로드 정보는 `/Users/thruthesky/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt` 에 있다. `r2.mjs` 가 이 파일을 읽는다. 값을 출력·커밋·문서에 쓰지 않는다 — 이 스킬 저장소는 공개다.
+   - 배포는 운영 반영이라 사용자가 요청했을 때만 한다. 그 밖에는 커밋까지 하고 배포 명령을 알려 준다.
+
+```bash
+# 데이터 저장소 뿌리에서
+node <스킬 폴더>/scripts/content.mjs stamp data/meta.json            # 4. data_version
+node scripts/build.mjs                                               # 4. meta.json 규격 검사
+node <스킬 폴더>/scripts/content.mjs check --dir _site/v2             # 2·3·4. 사진·8개 언어·data_version
+node <스킬 폴더>/scripts/content.mjs images --dir _site/v2 --ids 201  # 2. 사진을 Commons 정보와 대조
+node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph --dry-run   # 5. 배포 계획
+node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph             # 5. 배포 + 공개 주소 확인
+```
+
+## 9. ph-travel-api 저장소에서 일할 때 — 절대 규칙
 
 절차·검사·검증은 [maintain.md](references/maintain.md) 에 있다.
 
-1. **`main` push 는 곧 운영 배포다.** push 는 사용자가 요청할 때만 하고, 작업은 커밋까지만 한다.
-2. **push 전에 `node scripts/build.mjs` 가 성공해야 한다.** 실패하면 JSON 을 쓰지 않고 exit 1 이다.
+1. **운영 배포는 R2 업로드(`r2.mjs deploy`)이고, 사용자가 요청할 때만 한다.** 작업은 커밋까지만 한다. R2 로 옮기기 전까지는 `main` push 도 GitHub Pages 로 배포되므로 push 도 요청할 때만 한다.
+2. **배포·push 전에 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 빌드가 실패하면 JSON 을 쓰지 않고 exit 1 이다.
 3. `_site/` 는 커밋하지 않는다. 외부 npm 패키지를 넣지 않는다.
 4. **원본은 한국어 `data/ko/` 다.** 원본을 먼저 고치고 번역본(7개 언어)은 `scripts/i18n.mjs` 로 맞춘다(`data/README.md` §7). 필고의 `apps/travel/data/travel/` 은 옛 사본이다.
-5. **이 스킬의 원본은 [thruthesky/skills](https://github.com/thruthesky/skills) 저장소의 `skills/api-skill/` 이다.** ph-travel-api 저장소에는 스킬 파일이 없고, `.claude/settings.json` 으로 플러그인을 켠다. 스킬을 고치면 `SKILL.md` 의 `metadata.version`, `.claude-plugin/plugin.json` 의 `version`, 마켓플레이스(`.claude-plugin/marketplace.json`)의 `version` 을 같은 값으로 올린다. 올리지 않으면 Claude Code 플러그인 사용자에게 업데이트가 가지 않는다.
+5. **R2 키 파일의 값은 출력·대화·커밋·문서에 쓰지 않는다.** 경로만 적고, 읽는 일은 `r2.mjs` 에 맡긴다.
+6. **이 스킬의 원본은 [thruthesky/skills](https://github.com/thruthesky/skills) 저장소의 `skills/api-skill/` 이다.** ph-travel-api 저장소에는 스킬 파일이 없고, `.claude/settings.json` 으로 플러그인을 켠다. 스킬을 고치면 `SKILL.md` 의 `metadata.version`, `.claude-plugin/plugin.json` 의 `version`, 마켓플레이스(`.claude-plugin/marketplace.json`)의 `version` 을 같은 값으로 올린다. 올리지 않으면 Claude Code 플러그인 사용자에게 업데이트가 가지 않는다.
 
-## 9. 스킬 파일
+## 10. 스킬 파일
 
 | 파일 | 내용 |
 |------|------|
 | `scripts/travel.mjs` | 조회 도구 — list·show·search·near·values·types·sql·info·countries, `--lang` (캐시 SQLite DB 로 답함) |
 | `scripts/travel-db.mjs` | 받기(sync)·SQLite 만들기(build)·넣어 쓸 폴더(export). 모듈로도 쓴다 (Node 22.13+, 외부 패키지 없음) |
-| `scripts/apis.json` | 나라별 API 주소 목록 |
-| `scripts/update.sh` | `update` 인자 — 폴더로 설치했으면 최신 스킬을 받아 이 폴더를 바꾸고, Claude Code 플러그인이면 `claude plugin update` 를 안내한다 |
+| `scripts/content.mjs` | 콘텐츠 도구 — `stamp`(data_version 찍기)·`check`(배포 규격 — 8개 언어·data_version·사진·credit)·`images`(사진을 Commons 촬영 위치·라이선스·작가와 대조) |
+| `scripts/r2.mjs` | Cloudflare R2 배포 — `check`·`ls`·`deploy`(바뀐 것만, 사진 → 항목 → meta → manifest 순서, `--prune`)·`verify`(공개 주소 확인). 외부 패키지 없이 SigV4 서명 |
+| `scripts/apis.json` | 나라별 API 주소(`base`)·R2 prefix(`r2_prefix`) 목록 |
+| `scripts/update.sh` | `update` 인자 — 플러그인이면 범위마다 `claude plugin update`, 폴더 설치면 묶음을 받아 바꾸고, 원본 저장소면 `git pull --ff-only` |
 | `.claude-plugin/plugin.json` | Claude Code 플러그인 정보 (이름·version) |
 | `assets/travel-schema.sql` | SQLite 스키마 — 표·인덱스·FTS5 trigram·목록 뷰 |
 | `assets/TravelDb.php` · `assets/travel-page.php` | PHP 조회 클래스 · 예시 페이지 |
 | `assets/travel_db.dart` | Dart·Flutter 조회 클래스 (sqlite3) |
 | `assets/renderer.mjs` · `assets/travel_blocks.dart` | 웹 · Flutter 블록 렌더러 (48개 type, RTL) |
+| `references/pipeline.md` | 콘텐츠 파이프라인 — 다섯 가지, 출처 등급·사실별 최소 출처·근거 기록 형식, 사진 기준·검사, 8개 언어, data_version, R2 배포·캐시·CORS, 끝났다는 기준 |
 | `references/embedding.md` | 넣어 쓰기 — 원칙, PHP 웹·Flutter 앱·정적 웹 절차 |
 | `references/database.md` | SQLite 스키마·만들기·쿼리 모음·검색 규칙·세 구현 |
 | `references/api.md` | API 계약 — manifest·meta·places.<lang>·불변식·받기 코드 |

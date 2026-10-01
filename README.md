@@ -101,7 +101,7 @@ tar -xzf "$env:TEMP\skills.tar.gz" -C $DIR --strip-components=2 "skills-main/ski
 
 | 스킬 (폴더 · GitHub 경로) | 하는 일 | Claude Code 플러그인 · 부르기 |
 |------|------|------|
-| [`api-skill`](https://github.com/thruthesky/skills/tree/main/skills/api-skill) | 필리핀 여행 정보 API(198곳·8개 언어) — 여행 질문 답하기, 웹·앱에 넣기(SQLite·PHP·Flutter·렌더러), 여행지 추가·번역·배포 | `api-skill@thruthesky-skills` · `/api-skill:api-skill` |
+| [`api-skill`](https://github.com/thruthesky/skills/tree/main/skills/api-skill) | 필리핀 여행 정보 API(198곳·8개 언어) — 여행 질문 답하기, 웹·앱에 넣기(SQLite·PHP·Flutter·렌더러), 콘텐츠 만들기(여러 출처 비교·사진 검증·8개 언어·data_version)·Cloudflare R2 배포 | `api-skill@thruthesky-skills` · `/api-skill:api-skill` |
 | [`cowork`](https://github.com/thruthesky/skills/tree/main/skills/cowork) | 여러 AI(claude·codex·kimi·Copilot CLI·agy) 교차 분석 — "cowork" 라고 직접 부를 때만 동작 | `cowork@thruthesky-skills` · `/cowork:cowork` · `/cowork:init` |
 | [`currency-skill`](https://github.com/thruthesky/skills/tree/main/skills/currency-skill) | Frankfurter API 로 환율 조회·통화 변환 (ECB 데이터, API 키 불필요) | `currency-skill@thruthesky-skills` · `/currency-skill:exchange` |
 | [`data-skill`](https://github.com/thruthesky/skills/tree/main/skills/data-skill) | 대한민국 공공데이터포털(data.go.kr) API 사용 | `data-skill@thruthesky-skills` · `/data-skill:query` |
@@ -122,7 +122,7 @@ Codex 에서는 `$<스킬 이름>` 으로 부른다. 그 밖의 도구는 스킬
 
 ### 4.1 api-skill
 
-필리핀 여행 정보 API(198곳·8개 언어) — 여행 질문 답하기, 웹·앱에 넣기(SQLite·PHP·Flutter·렌더러), 여행지 추가·번역·배포
+필리핀 여행 정보 API(198곳·8개 언어) — 여행 질문 답하기, 웹·앱에 넣기(SQLite·PHP·Flutter·렌더러), 콘텐츠 만들기(여러 출처 비교·사진 검증·8개 언어·data_version)·Cloudflare R2 배포
 
 - 경로: https://github.com/thruthesky/skills/tree/main/skills/api-skill
 - SKILL.md: https://github.com/thruthesky/skills/blob/main/skills/api-skill/SKILL.md
@@ -441,7 +441,7 @@ thruthesky/skills 저장소의 waf 스킬을 설치해 줘.
 | Claude Code 플러그인 | `claude plugin marketplace update thruthesky-skills` → `claude plugin update <플러그인>@thruthesky-skills` → 다시 시작 | `claude plugin uninstall <플러그인>@thruthesky-skills` |
 | 스킬 폴더 | §4 의 글을 다시 붙여 넣거나 §2.3 명령을 다시 실행한다(폴더를 지우고 새로 받는다) | `rm -rf <스킬 폴더>/<스킬 이름>` |
 
-`api-skill` 은 스킬을 `update` 인자로 부르면(`bash <스킬 폴더>/scripts/update.sh`) 스스로 최신으로 바꾼다.
+`api-skill` 은 `update` 인자로 부르면(`/api-skill:api-skill update`·`$api-skill update`, 또는 "/api-skill update"라고 말하면) `scripts/update.sh` 로 스스로 최신으로 바꾼다. Claude Code 플러그인이면 설치된 범위마다 `claude plugin update` 를 실행하고(다시 시작하면 적용), 폴더 설치면 묶음을 받아 폴더를 바꾸고, 원본 체크아웃이면 깨끗할 때 `git pull --ff-only` 한다.
 
 ## 6. 스킬을 더하거나 고칠 때 (관리자)
 

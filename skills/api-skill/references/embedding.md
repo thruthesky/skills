@@ -14,12 +14,12 @@
 
 ## 1. 원칙 — 왜 넣어 쓰는가
 
-공개 주소(GitHub Pages)는 **데이터를 나눠 주는 곳**이지 실시간 서버가 아니다.
+공개 주소(Cloudflare R2 — 옮기기 전까지는 GitHub Pages)는 **데이터를 나눠 주는 곳**이지 실시간 서버가 아니다.
 
 | 넣어 쓰면 | 원격 API 를 매번 부르면 |
 |-----------|------------------------|
 | 오프라인에서도 된다. 첫 화면이 바로 뜬다 | 네트워크가 느리거나 끊기면 빈 화면 |
-| 외부 장애·한도와 무관하다 (Pages 는 월 100GB 권장, `max-age=600` 고정) | 방문자가 늘면 한도에 닿는다 |
+| 외부 장애·한도와 무관하다 (Pages 는 월 100GB 권장·`max-age=600` 고정, R2 는 요청 수에 따라 과금) | 방문자가 늘면 한도·비용에 닿는다 |
 | 데이터 버전이 제품 버전과 함께 고정·검증된다 | 배포 중에 반쯤 바뀐 데이터를 볼 수 있다 |
 | 검색·거르기를 인덱스로 빠르게 한다(SQLite) | 2MB JSON 을 받아 매번 훑어야 한다 |
 | 방문자 요청 기록이 제3자에 남지 않는다 | 모든 방문이 외부로 나간다 |
@@ -181,7 +181,7 @@ $text = $travel->text('boracay', $lang);                                     // 
 ### 3.5 사진
 
 - **권장:** `export` 로 받아 서버의 `/travel/images/` 에 둔다(`imageBase: '/travel/'`). 572장, 약 57MB 다.
-- **대안:** `--no-images` 로 받지 않고 `imageBase: 'https://thruthesky.github.io/ph-travel-api/v2/'` 로 Pages 의 사진을 쓴다. 전송량이 Pages 한도에 들어간다.
+- **대안:** `--no-images` 로 받지 않고 `imageBase` 를 공개 주소(지금 `https://thruthesky.github.io/ph-travel-api/v2/`, R2 첫 배포 뒤 `https://files.withcenter.com/ph-travel-api/v2/`)로 두어 그곳의 사진을 쓴다. 방문자의 사진 요청이 공개 주소로 간다.
 - 어느 쪽이든 **`credit`·`source` 를 화면에 보인다**(CC 라이선스). 목록 카드는 사진 모서리에 credit 을 두고, 상세 사진에는 원본 링크까지 둔다.
 
 ## 4. Flutter 앱

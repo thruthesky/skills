@@ -17,7 +17,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 | 나라 | 기본 주소 | 저장소 |
 |------|-----------|--------|
-| 필리핀 `ph` | `https://thruthesky.github.io/ph-travel-api/v2/` | `github.com/thruthesky/ph-travel-api` |
+| 필리핀 `ph` | `https://thruthesky.github.io/ph-travel-api/v2/` (지금) → `https://files.withcenter.com/ph-travel-api/v2/` (R2 첫 배포 뒤) | `github.com/thruthesky/ph-travel-api` |
 
 | 파일 | 내용 |
 |------|------|
@@ -29,7 +29,9 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 - 언어는 폴더가 아니라 파일 이름으로 나눈다. 그래서 사진 url `images/…` 가 어느 언어 파일에서나 같은 폴더 기준으로 맞는다.
 - 원본 언어는 `ko`(한국어), 대체 언어는 `en` 이다. 원하는 언어가 없으면 대체 언어를 쓴다.
 - `zh` 는 간체(`zh-Hans`), `ar` 은 오른쪽→왼쪽(`dir: "rtl"`)이다.
-- GitHub Pages 라서 모든 응답에 `Cache-Control: max-age=600` 과 `Access-Control-Allow-Origin: *` 가 붙는다. JSON 은 `application/json; charset=utf-8`, 사진은 `image/webp` 이다.
+- 응답 헤더 — JSON 은 `application/json; charset=utf-8`, 사진은 `image/webp` 이다.
+  - GitHub Pages(지금): 모든 응답에 `Cache-Control: max-age=600` 과 `Access-Control-Allow-Origin: *`.
+  - Cloudflare R2(배포 대상, [pipeline.md](pipeline.md) §7): JSON 은 `Cache-Control: no-cache`(ETag 로 확인 — 배포가 곧바로 보인다), 사진은 `public, max-age=31536000, immutable`. `Access-Control-Allow-Origin` 은 아직 없다(2026-10-01) — 다른 도메인의 웹 브라우저가 직접 받으려면 버킷 CORS 가 필요하다. 앱·서버·넣어 쓰기는 상관없다.
 
 ## 2. manifest.json
 
@@ -61,7 +63,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 ```json
 {
-  "schema": 2, "version": "a1b2c3d4e5f6", "title": "…", "description": "…",
+  "schema": 2, "version": "a1b2c3d4e5f6", "data_version": "2026-10-01T05:12:33Z", "title": "…", "description": "…",
   "source_language": "ko", "fallback_language": "en",
   "languages": [{ "code": "ar", "locale": "ar", "name": "Arabic", "native": "العربية", "dir": "rtl" }, "…"],
   "categories": [{ "key": "beach", "icon": "beach_access", "name": { "en": "…", "ko": "해변·섬", "…": "…" } }, "…"],
@@ -76,6 +78,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 | 키 | 쓰임 |
 |----|------|
+| `data_version` | 정보를 마지막으로 가공한 UTC 시각(`YYYY-MM-DDTHH:MM:SSZ`). 화면에 "정보 기준일"로 보여 준다. 비교(다시 받기)에는 `version` 을 쓴다. DB 의 `meta` 표에도 `data_version` 으로 들어간다 |
 | `languages` | 언어 선택 메뉴 — `native`(그 언어로 쓴 이름), `locale`, `dir`(ltr·rtl) |
 | `categories` | 분류 7개 — key: `beach` `diving` `mountain` `water` `heritage` `city` `nature`, `icon`, 언어별 `name` |
 | `island_groups` | 권역 3개 — `luzon` `visayas` `mindanao` |
@@ -171,13 +174,14 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 1. **version 은 전체에 하나다.**
    - manifest·meta·places 파일 8개가 같은 version 을 가진다.
+   - `meta.data_version` 은 다른 값이다 — 사람이 찍은 가공 시각이고, R2 배포본에는 반드시 있다.
    - 같은 내용이면 어디서 빌드해도 같다. 문서만 고친 배포는 version 이 그대로다.
 2. **모든 언어 파일은 여행지 모양이 같다.**
    - id·slug·순서가 같고, 블록 순서와 개수도 같다.
    - 언어와 무관한 값도 같다: id·slug·title_en·rating·좌표·months·budget 숫자·difficulty·airport.code·사진·링크·icon·variant·section key.
    - 빌드가 원본(ko)과 비교해 보장한다.
 3. **언어마다 다른 것은 `translate: true` 인 prop 과 `label` 뿐이다.**
-4. **비한국어 파일에는 한글이 없다** (빌드가 검사).
+4. **비한국어 파일에는 한글이 없다** (빌드가 검사). R2 배포본은 8개 언어(ar·en·ja·ko·ru·th·vi·zh)가 모두 있고, 모든 여행지에 대표 사진이 있다(`r2.mjs` 가 검사).
 5. **값은 노드다.** 여행지 속성(`id`·`slug`·`sections` 제외)은 `{ "type": … }` 객체다. 노드의 키 규격은 `meta.display.types.<type>.props` 이고, 빌드가 모든 노드를 이 규격으로 검사한다.
 6. **링크는 반드시 있는 여행지를 가리킨다.** `card.place`·`place_link.slug`.
 7. **type·키 추가는 호환된다.** 모르는 type·키는 무시하거나 대체해서 그린다([rendering.md](rendering.md) §2). 키 삭제·이름 변경·형식 변경은 `schema` 를 올리고 경로를 바꾼다.

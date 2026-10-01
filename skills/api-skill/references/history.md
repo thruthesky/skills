@@ -2,7 +2,7 @@
 
 왜 지금 모양이 되었는지와 남은 일이다. 구조를 크게 바꾸기 전에 읽는다.
 
-## 1. 현재 상태 (2026-09-30)
+## 1. 현재 상태 (2026-10-01)
 
 - **완료:**
   - 자료 이전, 빌드 스크립트, Pages 배포(v1, version `68cef818ff36`).
@@ -47,12 +47,28 @@
   - (2026-09-29) 다른 작업에서 올린 아랍어(ar) 100곳 번역(8720e5e, 보완 전 원본 기준)을 합쳤다. 001~100 은 바뀐 줄만, 101~200 의 98곳은 새로 번역해 **198곳 × 8개 언어**를 채웠다. 같은 커밋의 러시아어 어휘집 수정 8곳도 보완본 위에 다시 적용했다.
   - (2026-09-30) 청사진 [blueprint.md](blueprint.md) — 다른 정보(첫 대상은 밤문화 `ph-night-api`)를 이 저장소와 같은 형태로 만들 때의 설계·파일별 고칠 곳·순서·검증을 적었다. SKILL.md §7 이 입구다.
     - 198곳 × 8개 언어로 DB 크기를 쟀다(Node 24): en 15.8MB · ko+en 31.0MB · 8개 언어 150.1MB · 전문 검색 없이 99.7MB. [database.md](database.md) §2 표를 채웠다.
+  - (2026-10-01) 콘텐츠 규격과 R2 배포 — 사용자 요청으로 콘텐츠를 만들 때 지킬 다섯 가지를 정했다(§8). 입구는 SKILL.md §8, 절차는 [pipeline.md](pipeline.md).
+    - 도구 둘을 더했다. `scripts/content.mjs`(stamp·check·images)와 `scripts/r2.mjs`(check·ls·deploy·verify). 둘 다 외부 패키지가 없다.
+    - R2 시험: 여행지 1곳 × 8개 언어 묶음(13개 파일)을 `api-skill-test/v1/` 에 올리고 확인했다. 확인한 것은 공개 주소 응답, 바뀐 것만 다시 올리기, `--prune`, 사진 누락·언어 누락·잘못된 prefix 차단이다. 시험이 끝난 뒤 모두 지웠다(버킷 `files` 는 시험 전후 모두 비어 있었다).
+    - 198곳 빌드에 `--country ph --dry-run` 을 돌리면 582개(94MB)를 올리는 계획이 나온다. 지금 저장소 빌드는 `data_version` 이 없어 배포가 거부된다.
+    - 사진 572장을 `content.mjs images` 로 대조했다: 맞음 149 · 위치 정보 없음 413 · 15km 넘게 떨어져 찍음 8 · Commons 가 아닌 출처 1. 먼 8장 중 6장은 넓은 섬·주의 같은 곳이었다. 2장은 생물 사진이었다 — 077 안경원숭이는 주제와 맞고, 178 파밀라칸 섬의 대표 사진(팡라오 앞바다의 돌고래)은 섬이 보이지 않는다.
+    - `update` 인자: Claude Code 플러그인이면 안내만 하던 것을, 설치된 범위마다 `claude plugin update` 를 실행하도록 바꿨다. 원본 저장소는 깨끗할 때 `git pull --ff-only` 한다. 옛 `~/.claude/skills/travel-api-skill` 이 남아 있으면 알린다. 세 경로 모두 시험했다.
 - **남은 일:**
+  - **R2 첫 배포** (사용자가 요청할 때): ph-travel-api 에서 `content.mjs stamp data/meta.json` → `build.mjs` → 커밋 → `r2.mjs deploy --country ph` → `verify`.
+  - **R2 로 주소 바꾸기** (첫 배포를 확인한 뒤):
+    - `scripts/apis.json` 의 `base` 를 `https://files.withcenter.com/ph-travel-api/v2/` 로 바꾸고 스킬 version 을 올린다.
+    - 예시 주소를 바꾼다: [api.md](api.md) §6 의 `PH_BASE`·`phBase`, [database.md](database.md)·[rendering.md](rendering.md) 의 `imageBase`·`baseUrl`, `assets/TravelDb.php`·`assets/travel_db.dart`·`assets/travel_blocks.dart` 의 주석과 기본값.
+    - 필고 앱(`apps/lib/src/travel/`)이 받는 주소도 바꾼다.
+    - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 끌지, 옛 앱을 위해 한동안 둘지 사용자와 정한다.
+  - ph-travel-api `build.mjs` 에 `data_version` 형식 검사를 넣는다. 지금은 `content.mjs check`·`r2.mjs` 만 막는다.
+  - 근거 기록 `sources/`: 기존 198곳에는 없다. 항목을 고칠 때마다 채운다.
+  - 사진: 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. gallery 가 2장이 안 되는 16곳(0장 6곳·1장 10곳)을 채운다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.
+  - R2 버킷에 CORS(`Access-Control-Allow-Origin`)가 없다. 다른 도메인의 웹 페이지가 브라우저에서 직접 받아야 할 때 사용자에게 알리고 버킷 설정을 정한다([pipeline.md](pipeline.md) §7.5).
   - 문서가 가리키는 번역 지침·어휘집(`i18n/GUIDE.md`·`i18n/glossary/<언어>.json`)이 저장소에 없다. 번역 지침과 이름 표는 git 밖 작업 폴더(`_i18n/tools/`)에만 있다. 정리해 git 에 넣는다.
   - Node 22.14 의 내장 SQLite 에는 FTS5 가 없어 `travel.mjs`·`travel-db.mjs` 가 `no such module: fts5` 로 멈춘다. `--no-fts` 도 스키마를 통째로 실행한 뒤 색인 표를 지우는 순서라 같이 멈춘다. FTS5 가 없으면 색인 없이 만들도록 고친다.
   - 낡은 숫자: [rendering.md](rendering.md) §3 의 "지금 쓰이는 type 30개"는 33개다(`table`·`link`·`place_link` 가 쓰인다).
   - 101~200번 원본은 WebSearch 한도가 찬 뒤 WebFetch(위키백과·관광 사이트)로 확인해 썼다. 요금·배편·운영 시간은 "약"·범위와 "최신 공지 확인"으로 적었지만, 현지 사정을 아는 사람이 한 번 훑어보면 좋다.
-  - v2(다국어)와 스킬 묶음을 push 해 배포한다. push 전까지 공개 주소는 v1 이고 `/v2/`·스킬 묶음은 404 다.
+  - (끝남) v2 는 Pages 에 배포돼 있다 — 2026-10-01 에 `version 5ec63081162b`, 198곳 × 8개 언어를 확인했다. 스킬 묶음은 thruthesky/skills 로 옮겨 Pages 에서 내지 않는다(§4.1).
   - 스킬의 SQLite·조회 구현·렌더러는 두 가지로 검증했다.
     - 다국어 계약 모양의 시험 데이터
     - 저장소 빌드 스크립트가 만든 8개 언어 출력. 번역본은 자리 표시 글자였다.
@@ -66,7 +82,7 @@
     - 기기 DB 가 없을 때, 또는 번들이 내용이 다르고(`version`) 더 새것일 때(`generated_at`)만 번들을 푼다. 서버에서 받아 둔 더 새 데이터를 앱 업데이트가 되돌리지 않게 한다.
     - 켤 때 한 번 `manifest.json` 으로 확인해 version 이 다르면 뒤에서 조용히 받는다(§6.2 그대로).
 
-## 2. 왜 GitHub Pages 인가
+## 2. 왜 GitHub Pages 인가 — 2026-10-01 에 Cloudflare R2 로 바꿨다(§2.1)
 
 - **요구 사항:** git push 만으로 배포, 읽기 전용 정적 데이터, 웹·앱이 받아 저장하고 업데이트 확인.
 - **비교한 방법:**
@@ -81,6 +97,21 @@
   - 1순위는 Cloudflare Workers Static Assets 다(무료 20,000 파일, 파일당 25MiB).
   - 사진만 매우 커지면 사진만 R2 로 옮긴다.
   - JSON 의 사진 url 이 상대 경로이므로, 계약([api.md](api.md) §4)을 지키면 클라이언트 코드를 거의 고치지 않고 옮길 수 있다.
+
+## 2.1 왜 Cloudflare R2 로 바꾸나 (2026-10-01)
+
+- **사용자 결정:** 배포는 반드시 Cloudflare R2 로 해서, 웹·앱이 공개 주소에서 곧바로 받게 한다.
+  - R2 업로드 정보는 `/Users/thruthesky/Documents/Keys/Cloudflare/files.withcenter.com/files.withcenter.com-r2.txt` 에 있다. 버킷은 `files`, 공개 도메인은 `files.withcenter.com` 이다.
+- **Pages 와 비교해 나아지는 것:** 응답 헤더를 정할 수 있다 — JSON 은 `no-cache` 라서 배포가 곧바로 보이고, Pages 처럼 10분을 기다리지 않는다. 사진은 1년 `immutable` 이다. 1GB·월 100GB 권장 한도에도 매이지 않는다.
+- **올리는 방법 — 외부 패키지 없는 SigV4 서명(`r2.mjs`):**
+  - 개발 컴퓨터에 aws CLI·wrangler·rclone 이 없다. 이 저장소들은 외부 패키지를 쓰지 않는다는 원칙도 있다.
+  - 그래서 S3 호환 API 를 `node:crypto` 로 직접 서명한다. ListObjectsV2·PutObject·DeleteObject 만 쓴다.
+- **안전장치:**
+  - 공유 버킷이라 `<이름>/v<숫자>/` prefix 아래에만 올리고 지운다.
+  - 사진 → 언어 파일 → meta → manifest 순서로 올리고, 지우기는 manifest 뒤에 한다. 중간에 멈춰도 클라이언트는 옛 데이터를 그대로 받는다.
+  - 올리기 전에 배포 규격 검사(`checkBuild`)를 한다. ETag(MD5)를 비교해 바뀐 파일만 올린다.
+- **CORS:** 버킷 응답에 `Access-Control-Allow-Origin` 이 없다. 버킷 전체 설정이라 스킬이 바꾸지 않는다. 기본 방식이 넣어 쓰기라서 대개 필요 없다.
+- **옮기는 중:** 공개 주소는 R2 첫 배포를 확인할 때까지 Pages 다. 그때까지 `main` push 도 Pages 로 배포된다(§1 남은 일).
 
 ## 3. 왜 블록 JSON 인가 (2026-09-27)
 
@@ -170,3 +201,23 @@
   - 모든 언어 DB 를 Pages 에 올리면 한 파일이 40MB 안팎이 된다.
   - 필요해지면 빌드에 `travel-db.mjs build` 를 더해 `_site/v2/travel.db` 로 낼 수 있다.
 - **Node 도구가 내장 `node:sqlite` 를 쓰는 이유:** 외부 패키지 금지 원칙을 지킨다. Node 22.13+ 가 필요하다(Actions·개발 환경은 24).
+
+## 7. 왜 data_version 을 따로 두나 (2026-10-01)
+
+- **사용자 결정:** `meta.json` 에 정보를 가공한 UTC 날짜를 버전으로 적는다.
+- **키 이름 `data_version`:** 원본 `meta.json` 에 `version` 을 넣으면 `build.mjs` 가 출력 meta 를 `{ ...head, ...meta }` 로 쓰면서 내용 해시를 덮는다. 그러면 `meta.version ≠ manifest.version` 이 되어 받는 쪽 검사(`checkBundle`)가 실패한다. 그래서 다른 이름을 쓴다.
+- **`version` 은 그대로 둔다:** 내용 해시라서 사람이 찍기를 잊어도 바뀐 내용을 놓치지 않는다. 다시 받을지는 `version` 으로 정하고, `data_version` 은 "정보 기준일"을 보여 줄 때 쓴다.
+- **형식 `YYYY-MM-DDTHH:MM:SSZ`:** 하루에 여러 번 가공해도 순서가 갈린다. 날짜로 시작해 글자 순서가 시간 순서다. UTC 라서 작업자의 시간대와 무관하다.
+- **찍는 법:** `content.mjs stamp` 는 값만 바꾸거나 첫 키로 넣는다. 파일의 다른 줄은 그대로 둔다. 빌드는 모르는 최상위 키를 막지 않으므로 지금 `build.mjs` 그대로 통과한다(198곳 빌드로 확인했다).
+
+## 8. 왜 콘텐츠 다섯 가지인가 (2026-10-01)
+
+- **사용자 결정:** 콘텐츠를 만들거나 가공할 때 다음을 반드시 지킨다.
+  1. 인터넷 검색을 넉넉히 하고 같은 정보를 여러 출처에서 비교한다.
+  2. 정보와 맞는 정확한 사진을 넣는다.
+  3. 8개 언어로 번역한다.
+  4. `meta.json` 형식을 따르고 `data_version` 을 적는다.
+  5. R2 로 배포한다.
+- **근거를 git 에 두는 이유:** 200곳을 보완할 때의 근거(`_i18n/tools/changes/`)를 git 밖에 두었다가 잃었다. 그래서 `sources/<id>-<slug>.json` 을 데이터 저장소에 둔다. `data/` 안에는 두지 않는다 — `build.mjs` 가 모르는 폴더를 막는다.
+- **사진 검사를 도구로 만든 이유:** 200곳 보완 때 다른 장소가 찍힌 사진 3장을 찾았다. Commons 의 촬영 위치·라이선스·작가를 자동으로 대조하면 눈으로 볼 사진이 줄어든다. 다만 위치 정보는 사진의 약 27% 에만 있어서 눈으로 확인하는 일은 남는다.
+- **8개 언어를 배포 조건으로 둔 이유:** 빌드는 번역 폴더가 없는 언어를 배포에서 빼고 통과한다. 그래서 배포 도구가 8개 언어를 따로 확인한다.
