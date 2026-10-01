@@ -2,7 +2,7 @@
 name: api-skill
 description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 ar·en·ja·ko·ru·th·vi·zh)와 같은 형태의 정보 API 전용 스킬. JSON 을 SQLite(travel.db)로 바꿔 언어별 전문 검색으로 여행지 추천·일정·비용·가는 방법·가까운 곳을 답하고, PHP 웹·Flutter 앱·정적 웹에 데이터를 넣는 DB·조회 코드(PHP·Dart)·블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 정보와 맞는 사진 검증, 8개 언어 번역, meta.json 의 data_version(UTC), Cloudflare R2 배포. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·places.json·meta.json·travel.db 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지·정보 콘텐츠를 만들거나 고치거나 가공·검색·분석·문서화·번역·사진·검사·배포(R2)할 때, (4) 다른 정보(밤문화·맛집·병원·비자 등, 예컨대 ph-night-api)를 같은 형태로 새로 만들 때, (5) 사용자가 api-skill 을 부를 때(/api-skill:api-skill, $api-skill) — 인자가 update 이거나 사용자가 "/api-skill update"·"api-skill 업데이트"라고 하면 스킬을 최신으로 갱신한다.
 metadata:
-  version: "2026.10.01"
+  version: "2026.10.01.2"
   repo: "https://github.com/thruthesky/skills"
   api_repo: "https://github.com/thruthesky/ph-travel-api"
 ---
@@ -126,8 +126,8 @@ travelq info                                                # version·언어·D
 
 자세한 것은 [api.md](references/api.md) 에 있다.
 
-- **주소:** 지금 공개 주소는 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)다.
-  - 배포는 이제 Cloudflare R2 로 한다(§8). R2 첫 배포를 확인하면 `https://files.withcenter.com/ph-travel-api/v2/` 로 바뀌고, 그때 `apis.json` 의 `base` 를 바꾼다([history.md](references/history.md) 남은 일).
+- **주소:** `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2, 2026-10-01 부터)
+  - 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)는 옛 앱을 위해 당분간 같은 내용을 내보낸다. 새 코드는 R2 주소를 쓴다.
   - `manifest.json` — `{ version, languages, source_language: ko, fallback_language: en, meta, places: { <lang>: 파일 } }`
   - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 속성·단락, 표시 방법 `display`(type 48개), 정보를 가공한 UTC 시각 `data_version`
   - `places.<lang>.json` — 그 언어의 여행지 전체
@@ -227,7 +227,7 @@ node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph          
 
 절차·검사·검증은 [maintain.md](references/maintain.md) 에 있다.
 
-1. **운영 배포는 R2 업로드(`r2.mjs deploy`)이고, 사용자가 요청할 때만 한다.** 작업은 커밋까지만 한다. R2 로 옮기기 전까지는 `main` push 도 GitHub Pages 로 배포되므로 push 도 요청할 때만 한다.
+1. **운영 배포는 R2 업로드(`r2.mjs deploy`)이고, 사용자가 요청할 때만 한다.** 작업은 커밋까지만 한다. `main` push 는 옛 주소(GitHub Pages)에도 배포되므로 push 도 요청할 때만 한다.
 2. **배포·push 전에 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 빌드가 실패하면 JSON 을 쓰지 않고 exit 1 이다.
 3. `_site/` 는 커밋하지 않는다. 외부 npm 패키지를 넣지 않는다.
 4. **원본은 한국어 `data/ko/` 다.** 원본을 먼저 고치고 번역본(7개 언어)은 `scripts/i18n.mjs` 로 맞춘다(`data/README.md` §7). 필고의 `apps/travel/data/travel/` 은 옛 사본이다.

@@ -10,7 +10,7 @@ declare(strict_types=1);
  * 읽기 전용으로 연다. 자료가 바뀌면 새 파일을 올려 통째로 바꾼다.
  * 필요한 것: PHP 8.1+, pdo_sqlite (SQLite 3.34+ — FTS5 trigram). 외부 패키지 없음.
  *
- *   $travel = new TravelDb(__DIR__ . '/travel.db', imageBase: 'https://thruthesky.github.io/ph-travel-api/v2/');
+ *   $travel = new TravelDb(__DIR__ . '/travel.db', imageBase: 'https://files.withcenter.com/ph-travel-api/v2/');
  *   $lang   = $travel->lang($_GET['lang'] ?? 'ko');                   // 없는 언어면 대체 언어
  *   $page   = $travel->list(['month' => 12, 'category' => 'beach'], $lang, limit: 20);
  *   $hits   = $travel->search('고래상어', $lang);

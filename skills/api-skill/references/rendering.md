@@ -201,7 +201,7 @@ export function renderBlock(b, ctx = {}) {
 
 ```dart
 final blocks = TravelBlocks(
-  baseUrl: 'https://thruthesky.github.io/ph-travel-api/v2/',
+  baseUrl: 'https://files.withcenter.com/ph-travel-api/v2/',
   places: places,                                  // 링크 카드에 그 여행지 사진을 보여 줄 때
   onPlaceTap: (slug) => context.push('/place/$slug'),
   onLinkTap: (url) => launchUrl(Uri.parse(url)),   // 사진 원본·지도·외부 링크

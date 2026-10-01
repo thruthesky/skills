@@ -289,7 +289,7 @@ headers.authorization = `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, Si
 - 2026-10-01 실측: 버킷 응답에 `Access-Control-Allow-Origin` 이 없다.
   - 앱(Flutter)·서버(PHP)·개발 컴퓨터에서 받는 것은 상관없다.
   - 다른 도메인의 웹 페이지가 브라우저에서 직접 받을 때만 막힌다. 기본 방식은 넣어 쓰기라서([embedding.md](embedding.md)) 대개 필요 없다.
-- 버킷 CORS 는 버킷 전체에 걸리는 설정이라 스킬이 바꾸지 않는다. 필요하면 사용자에게 알린다 — 대시보드 R2 > `files` > Settings > CORS Policy:
+- 버킷 CORS 는 버킷 전체에 걸리는 설정이라 스킬이 바꾸지 않는다. 키 파일의 토큰은 객체 읽기·쓰기 권한뿐이라 바꿀 수도 없다 — S3 API(`GetBucketCors`)와 Cloudflare API(`/r2/buckets/files/cors`) 모두 403 이다(2026-10-01 확인). 필요하면 사용자가 대시보드에서 바꾼다 — R2 > `files` > Settings > CORS Policy:
 
 ```json
 [{ "AllowedOrigins": ["*"], "AllowedMethods": ["GET", "HEAD"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 86400 }]

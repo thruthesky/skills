@@ -22,9 +22,9 @@
 | 항목 | 값 |
 |------|----|
 | 정체 | 필리핀 여행지 198곳을 **8개 언어 블록 JSON** 으로 내주는 **정적 API**. 서버 코드·DB 없음 |
-| 공개 주소 | 지금 `https://thruthesky.github.io/ph-travel-api/v2/manifest.json` (Pages). R2 첫 배포 뒤 `https://files.withcenter.com/ph-travel-api/v2/manifest.json` |
-| 호스팅 | **Cloudflare R2** — 버킷 `files`, 공개 도메인 `files.withcenter.com`, prefix `ph-travel-api/v2/` (옮기는 중). 옛 주소는 GitHub Pages (Source: GitHub Actions) |
-| 배포 | `node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph` ([pipeline.md](pipeline.md) §7). R2 로 옮기기 전까지는 `main` push 도 `.github/workflows/deploy.yml` 로 Pages 에 배포된다(1~2분) |
+| 공개 주소 | `https://files.withcenter.com/ph-travel-api/v2/manifest.json` (R2). 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/manifest.json` (Pages)도 당분간 같은 내용 |
+| 호스팅 | **Cloudflare R2** — 버킷 `files`, 공개 도메인 `files.withcenter.com`, prefix `ph-travel-api/v2/` (2026-10-01 첫 배포). 옛 주소는 GitHub Pages (Source: GitHub Actions) |
+| 배포 | `node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph` ([pipeline.md](pipeline.md) §7). `main` push 는 `.github/workflows/deploy.yml` 로 옛 주소(Pages)에도 배포된다(1~2분) |
 | 원본 | `data/ko/*.json`(원본 언어 한국어) · `data/<en·zh·ja·th·vi·ru·ar>/*.json`(번역본) · `data/meta.json`(언어·분류 목록·속성·단락·표시 방법) · `data/images/*.webp` 사진 572장 |
 | 빌드 결과 | `_site/v2/` — `manifest.json` · `meta.json` · `places.<lang>.json` 8개 · `images/` |
 | 저장소 | `github.com/thruthesky/ph-travel-api` (공개) |
@@ -119,7 +119,7 @@ ph-travel-api/
 
 ## 5. 규칙
 
-1. **운영 배포는 R2 업로드다.** 필고 프로젝트 규칙에 따라 배포와 push 는 사용자가 요청할 때만 한다. 작업을 마치면 커밋까지만 한다. R2 로 옮기기 전까지는 `main` push 도 Pages 로 배포된다.
+1. **운영 배포는 R2 업로드다.** 필고 프로젝트 규칙에 따라 배포와 push 는 사용자가 요청할 때만 한다. 작업을 마치면 커밋까지만 한다. `main` push 는 옛 주소(Pages)에도 배포된다.
 2. **배포·push 전에 반드시 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 커밋한 내용만 R2 에 올린다.
 3. **`_site/` 는 커밋하지 않는다.** 배포 때 Actions 가 새로 만든다.
 4. **외부 npm 패키지를 넣지 않는다.** 빌드는 Node 기본 모듈과 시스템 tar 만 쓴다. 그래서 `package.json` 도 없다.

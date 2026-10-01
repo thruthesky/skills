@@ -53,22 +53,22 @@
     - 198곳 빌드에 `--country ph --dry-run` 을 돌리면 582개(94MB)를 올리는 계획이 나온다. 지금 저장소 빌드는 `data_version` 이 없어 배포가 거부된다.
     - 사진 572장을 `content.mjs images` 로 대조했다: 맞음 149 · 위치 정보 없음 413 · 15km 넘게 떨어져 찍음 8 · Commons 가 아닌 출처 1. 먼 8장 중 6장은 넓은 섬·주의 같은 곳이었다. 2장은 생물 사진이었다 — 077 안경원숭이는 주제와 맞고, 178 파밀라칸 섬의 대표 사진(팡라오 앞바다의 돌고래)은 섬이 보이지 않는다.
     - `update` 인자: Claude Code 플러그인이면 안내만 하던 것을, 설치된 범위마다 `claude plugin update` 를 실행하도록 바꿨다. 원본 저장소는 깨끗할 때 `git pull --ff-only` 한다. 옛 `~/.claude/skills/travel-api-skill` 이 남아 있으면 알린다. 세 경로 모두 시험했다.
+  - (2026-10-01) **R2 첫 배포와 주소 전환** — 공개 주소가 `https://files.withcenter.com/ph-travel-api/v2/` 가 됐다.
+    - ph-travel-api `data/meta.json` 에 `data_version` `2026-09-29T07:26:02Z` 를 넣었다(`5d2cf06`). 값은 오늘이 아니라 data/ 의 JSON·사진을 마지막으로 바꾼 커밋(`9587fe6`, 아랍어 198곳 완성)의 시각이다.
+    - `r2.mjs deploy --country ph` 로 582개(94MB)를 40초에 올렸다. `verify` 가 통과했고(언어 파일 8개·사진 572장의 ETag·content-type), 조회 도구가 R2 주소에서 받아 DB 를 만들고 검색하는 것까지 확인했다. version `4516764917f8`.
+    - README 를 R2 기준으로 고쳐 push 했다(`547fc06`). 옛 주소(Pages)도 같은 version 을 내보낸다 — 옛 앱을 위해 당분간 둔다.
+    - 스킬: `apis.json` 의 `base`, 예시 주소(api.md·database.md·rendering.md·embedding.md, `assets/` 의 주석·기본값)를 R2 로 바꿨다(2026.10.01.2).
+    - 필고 앱: `TravelService.defaultBaseUrl`·`tool/build_travel_db.dart` 를 R2 로 바꾸고, 앱 DB 빌더에 `data_version` 을 넣었다. 번들 DB(`assets/travel.db.gz`)를 R2 에서 다시 만들었다(`base` R2, version `4516764917f8`). `flutter test test/travel` 26개가 통과했다.
 - **남은 일:**
-  - **R2 첫 배포** (사용자가 요청할 때): ph-travel-api 에서 `content.mjs stamp data/meta.json` → `build.mjs` → 커밋 → `r2.mjs deploy --country ph` → `verify`.
-  - **R2 로 주소 바꾸기** (첫 배포를 확인한 뒤):
-    - `scripts/apis.json` 의 `base` 를 `https://files.withcenter.com/ph-travel-api/v2/` 로 바꾸고 스킬 version 을 올린다.
-    - 예시 주소를 바꾼다: [api.md](api.md) §6 의 `PH_BASE`·`phBase`, [database.md](database.md)·[rendering.md](rendering.md) 의 `imageBase`·`baseUrl`, `assets/TravelDb.php`·`assets/travel_db.dart`·`assets/travel_blocks.dart` 의 주석과 기본값.
-    - 필고 앱(`apps/lib/src/travel/`)이 받는 주소도 바꾼다.
-    - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 끌지, 옛 앱을 위해 한동안 둘지 사용자와 정한다.
+  - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 언제 끌지 사용자와 정한다. 옛 앱(옛 번들·옛 기본 주소)이 남아 있는 동안은 둔다.
   - ph-travel-api `build.mjs` 에 `data_version` 형식 검사를 넣는다. 지금은 `content.mjs check`·`r2.mjs` 만 막는다.
   - 근거 기록 `sources/`: 기존 198곳에는 없다. 항목을 고칠 때마다 채운다.
   - 사진: 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. gallery 가 2장이 안 되는 16곳(0장 6곳·1장 10곳)을 채운다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.
-  - R2 버킷에 CORS(`Access-Control-Allow-Origin`)가 없다. 다른 도메인의 웹 페이지가 브라우저에서 직접 받아야 할 때 사용자에게 알리고 버킷 설정을 정한다([pipeline.md](pipeline.md) §7.5).
+  - R2 버킷에 CORS(`Access-Control-Allow-Origin`)가 없다. 키 파일의 토큰은 객체 읽기·쓰기 권한뿐이라 S3 API·Cloudflare API 모두 403 이다. 다른 도메인의 웹 페이지가 브라우저에서 직접 받아야 하면 사용자가 대시보드에서 정한다([pipeline.md](pipeline.md) §7.5).
   - 문서가 가리키는 번역 지침·어휘집(`i18n/GUIDE.md`·`i18n/glossary/<언어>.json`)이 저장소에 없다. 번역 지침과 이름 표는 git 밖 작업 폴더(`_i18n/tools/`)에만 있다. 정리해 git 에 넣는다.
   - Node 22.14 의 내장 SQLite 에는 FTS5 가 없어 `travel.mjs`·`travel-db.mjs` 가 `no such module: fts5` 로 멈춘다. `--no-fts` 도 스키마를 통째로 실행한 뒤 색인 표를 지우는 순서라 같이 멈춘다. FTS5 가 없으면 색인 없이 만들도록 고친다.
   - 낡은 숫자: [rendering.md](rendering.md) §3 의 "지금 쓰이는 type 30개"는 33개다(`table`·`link`·`place_link` 가 쓰인다).
   - 101~200번 원본은 WebSearch 한도가 찬 뒤 WebFetch(위키백과·관광 사이트)로 확인해 썼다. 요금·배편·운영 시간은 "약"·범위와 "최신 공지 확인"으로 적었지만, 현지 사정을 아는 사람이 한 번 훑어보면 좋다.
-  - (끝남) v2 는 Pages 에 배포돼 있다 — 2026-10-01 에 `version 5ec63081162b`, 198곳 × 8개 언어를 확인했다. 스킬 묶음은 thruthesky/skills 로 옮겨 Pages 에서 내지 않는다(§4.1).
   - 스킬의 SQLite·조회 구현·렌더러는 두 가지로 검증했다.
     - 다국어 계약 모양의 시험 데이터
     - 저장소 빌드 스크립트가 만든 8개 언어 출력. 번역본은 자리 표시 글자였다.
@@ -111,7 +111,7 @@
   - 사진 → 언어 파일 → meta → manifest 순서로 올리고, 지우기는 manifest 뒤에 한다. 중간에 멈춰도 클라이언트는 옛 데이터를 그대로 받는다.
   - 올리기 전에 배포 규격 검사(`checkBuild`)를 한다. ETag(MD5)를 비교해 바뀐 파일만 올린다.
 - **CORS:** 버킷 응답에 `Access-Control-Allow-Origin` 이 없다. 버킷 전체 설정이라 스킬이 바꾸지 않는다. 기본 방식이 넣어 쓰기라서 대개 필요 없다.
-- **옮기는 중:** 공개 주소는 R2 첫 배포를 확인할 때까지 Pages 다. 그때까지 `main` push 도 Pages 로 배포된다(§1 남은 일).
+- **옮긴 날:** 2026-10-01 에 첫 배포를 확인하고 공개 주소를 R2 로 바꿨다(§1). 옛 주소(Pages)는 `main` push 로 계속 배포되며, 끌 때는 사용자와 정한다.
 
 ## 3. 왜 블록 JSON 인가 (2026-09-27)
 

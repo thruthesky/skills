@@ -195,7 +195,7 @@ $place = $travel->place('boracay', $lang); // 배열 — json_encode 해서 페�
 ```
 
 ```dart
-final travel = TravelDb.open('/path/travel.db', imageBase: 'https://thruthesky.github.io/ph-travel-api/v2/');
+final travel = TravelDb.open('/path/travel.db', imageBase: 'https://files.withcenter.com/ph-travel-api/v2/');
 final lang = travel.lang('ko');
 final page = travel.list(const TravelFilter(month: 12, category: 'beach', sort: 'rating'), lang, limit: 20);
 final hits = travel.search('고래상어', lang, filter: const TravelFilter(month: 3));

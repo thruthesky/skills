@@ -3,7 +3,7 @@
 // 의존성은 flutter/material.dart 하나다. 모델 클래스 없이 JSON(Map)을 그대로 그린다.
 // 그래서 API 에 새 type·키가 늘어도 깨지지 않는다 — 모르는 type 은 meta.json display.rules 대로 대체한다.
 //
-//   const base = 'https://thruthesky.github.io/ph-travel-api/v2/';
+//   const base = 'https://files.withcenter.com/ph-travel-api/v2/';
 //   final blocks = TravelBlocks(baseUrl: base, places: places, onPlaceTap: (slug) => context.push('/place/$slug'));
 //   SingleChildScrollView(child: blocks.place(context, placeJson));
 //

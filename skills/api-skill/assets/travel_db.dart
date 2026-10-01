@@ -68,7 +68,7 @@ class TravelDb {
   /// 앱에 넣은 DB 를 쓰기 가능한 폴더(dir)로 복사해 연다. 애셋은 바로 열 수 없어서 복사한다.
   /// 넣은 DB 의 버전(travel.db.version)이 바뀌었을 때만 다시 복사한다 — 임시 파일에 쓴 뒤 이름을 바꿔 통째로 교체.
   static Future<TravelDb> openEmbedded(Directory dir, Future<Uint8List> Function(String asset) readAsset,
-      {String asset = 'assets/travel.db', String imageBase = 'https://thruthesky.github.io/ph-travel-api/v2/'}) async {
+      {String asset = 'assets/travel.db', String imageBase = 'https://files.withcenter.com/ph-travel-api/v2/'}) async {
     final version = utf8.decode(await readAsset('$asset.version')).trim();
     final file = File('${dir.path}/travel.db');
     final mark = File('${dir.path}/travel.db.version');

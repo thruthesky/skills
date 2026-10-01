@@ -17,7 +17,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 | 나라 | 기본 주소 | 저장소 |
 |------|-----------|--------|
-| 필리핀 `ph` | `https://thruthesky.github.io/ph-travel-api/v2/` (지금) → `https://files.withcenter.com/ph-travel-api/v2/` (R2 첫 배포 뒤) | `github.com/thruthesky/ph-travel-api` |
+| 필리핀 `ph` | `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2 — 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/` 는 당분간 같은 내용) | `github.com/thruthesky/ph-travel-api` |
 
 | 파일 | 내용 |
 |------|------|
@@ -30,8 +30,8 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 - 원본 언어는 `ko`(한국어), 대체 언어는 `en` 이다. 원하는 언어가 없으면 대체 언어를 쓴다.
 - `zh` 는 간체(`zh-Hans`), `ar` 은 오른쪽→왼쪽(`dir: "rtl"`)이다.
 - 응답 헤더 — JSON 은 `application/json; charset=utf-8`, 사진은 `image/webp` 이다.
-  - GitHub Pages(지금): 모든 응답에 `Cache-Control: max-age=600` 과 `Access-Control-Allow-Origin: *`.
-  - Cloudflare R2(배포 대상, [pipeline.md](pipeline.md) §7): JSON 은 `Cache-Control: no-cache`(ETag 로 확인 — 배포가 곧바로 보인다), 사진은 `public, max-age=31536000, immutable`. `Access-Control-Allow-Origin` 은 아직 없다(2026-10-01) — 다른 도메인의 웹 브라우저가 직접 받으려면 버킷 CORS 가 필요하다. 앱·서버·넣어 쓰기는 상관없다.
+  - Cloudflare R2(기본 주소, [pipeline.md](pipeline.md) §7): JSON 은 `Cache-Control: no-cache`(ETag 로 확인 — 배포가 곧바로 보인다), 사진은 `public, max-age=31536000, immutable`. `Access-Control-Allow-Origin` 은 아직 없다(2026-10-01) — 다른 도메인의 웹 브라우저가 직접 받으려면 버킷 CORS 가 필요하다. 앱·서버·넣어 쓰기는 상관없다.
+  - GitHub Pages(옛 주소): 모든 응답에 `Cache-Control: max-age=600` 과 `Access-Control-Allow-Origin: *`.
 
 ## 2. manifest.json
 
@@ -215,7 +215,7 @@ node <스킬 폴더>/scripts/travel-db.mjs export --out ./public/travel --langs 
 #### JavaScript
 
 ```js
-export const PH_BASE = 'https://thruthesky.github.io/ph-travel-api/v2/';
+export const PH_BASE = 'https://files.withcenter.com/ph-travel-api/v2/';
 const SCHEMA = 2;
 
 /** 그 언어(없으면 대체 언어)의 meta·places. 저장본의 version 이 같으면 저장본, 받지 못하면 저장본. */
@@ -258,7 +258,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
-const phBase = 'https://thruthesky.github.io/ph-travel-api/v2/';
+const phBase = 'https://files.withcenter.com/ph-travel-api/v2/';
 
 /// 그 언어(없으면 대체 언어)의 meta·places 를 dir/travel.<lang>.json 에 저장해 두고, version 이 다를 때만 새로 받는다.
 Future<Map<String, dynamic>> loadTravel(Directory dir, {String lang = 'ko', String base = phBase}) async {
