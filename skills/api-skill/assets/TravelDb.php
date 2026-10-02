@@ -102,6 +102,41 @@ final class TravelDb
     }
 
     /**
+     * 추천 모음 — 지역별 추천 베스트(meta.destinations, 외국인 여행자가 많이 찾는 순서)와 월별 추천(meta.monthly_picks).
+     * 여행지는 목록 한 줄(place_list)로, 데이터의 추천 순서 그대로다. 추천 모음이 없는 옛 데이터면 빈 배열이다.
+     * @return array{destinations: list<array{key: string, icon: ?string, latitude: float, longitude: float, name: string, tagline: string, items: list<array<string, mixed>>}>, months: array<int, list<array<string, mixed>>>}
+     */
+    public function picks(string $lang): array
+    {
+        $meta = json_decode((string) ($this->db->query("SELECT value FROM meta WHERE key = 'meta_json'")->fetchColumn() ?: '{}'), true) ?: [];
+        $fallback = $this->meta['fallback_language'] ?? 'en';
+        $text = fn (mixed $map): string => is_array($map) ? (string) (($map[$lang] ?? $map[$fallback] ?? reset($map)) ?: '') : '';
+        $ids = [];
+        foreach ($this->db->query('SELECT slug, id FROM places') as $r) {
+            $ids[$r['slug']] = (int) $r['id'];
+        }
+        $items = function (array $slugs) use ($ids, $lang): array {
+            $want = array_values(array_filter(array_map(fn ($slug) => $ids[$slug] ?? null, $slugs)));
+            $rows = $want ? $this->rows($want, $lang) : [];
+            return array_values(array_filter(array_map(fn (int $id) => $rows[$id] ?? null, $want)));
+        };
+        $destinations = array_map(fn (array $d) => [
+            'key' => (string) $d['key'],
+            'icon' => $d['icon'] ?? null,
+            'latitude' => (float) ($d['latitude'] ?? 0),
+            'longitude' => (float) ($d['longitude'] ?? 0),
+            'name' => $text($d['name'] ?? null),
+            'tagline' => $text($d['tagline'] ?? null),
+            'items' => $items($d['places'] ?? []),
+        ], $meta['destinations'] ?? []);
+        $months = [];
+        foreach ($meta['monthly_picks'] ?? [] as $m) {
+            $months[(int) $m['month']] = $items($m['places'] ?? []);
+        }
+        return ['destinations' => $destinations, 'months' => $months];
+    }
+
+    /**
      * 여행지 목록.
      * @param array{month?: int, category?: string, island_group?: string, region?: string, difficulty?: int,
      *              tag?: string, max_budget?: int, min_rating?: float, q?: string, sort?: string} $filter key 로 거른다

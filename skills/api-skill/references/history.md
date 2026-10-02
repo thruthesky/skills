@@ -2,7 +2,7 @@
 
 왜 지금 모양이 되었는지와 남은 일이다. 구조를 크게 바꾸기 전에 읽는다.
 
-## 1. 현재 상태 (2026-10-01)
+## 1. 현재 상태 (2026-10-02)
 
 - **완료:**
   - 자료 이전, 빌드 스크립트, Pages 배포(v1, version `68cef818ff36`).
@@ -61,11 +61,16 @@
     - 필고 앱: `TravelService.defaultBaseUrl`·`tool/build_travel_db.dart` 를 R2 로 바꾸고, 앱 DB 빌더에 `data_version` 을 넣었다. 번들 DB(`assets/travel.db.gz`)를 R2 에서 다시 만들었다(`base` R2, version `4516764917f8`). `flutter test test/travel` 26개가 통과했다.
   - (2026-10-01) **CORS 설정** — 사용자가 키의 권한을 R2 관리(Admin Read & Write)로 올렸다. `r2.mjs cors` 명령을 더하고 버킷 `files` 에 origin `*`·GET·HEAD 규칙을 넣었다. 공개 응답의 `Access-Control-Allow-Origin: *` 와 사전 요청 204 를 확인했다.
     - 읽기 요청으로 키의 권한을 확인했다: R2 버킷 6개 모두 객체·설정을 읽을 수 있다. 도메인(Zone)은 0개가 보이고, Pages·KV·D1·Queues·Images·Stream·Turnstile·AI·결제·구성원은 막힌다. 계정 정보·Workers 스크립트·Tunnel·Access 목록 읽기는 성공했다(쓰기는 시험하지 않았다).
+  - (2026-10-02) **사진 10장 규칙과 추천 모음** — 사용자 요청(2026.10.02).
+    - 사진: 여행지마다 10장 이상(대표 1 + gallery 9)으로 올렸다. 3장으로는 그곳의 전경·명소·활동·계절을 보여 주지 못해서다. `content.mjs check`·`r2.mjs deploy` 가 10장 미만이면 막고(`--allow-few-images` 로만 알림으로 낮춤), 후보 찾기 `photos`(분류·이름·좌표 주변, 이미 쓴 사진·1080px 미만·NC/ND 제외)와 받기 `fetch`(1080px WebP + credit·source 를 채운 image 노드)를 더했다. 실측: 198곳 모두 3장, 모자란 사진 1,408장. 030 비간으로 후보 찾기·받기를 시험했다.
+    - 추천 모음: `meta.json` 에 `destinations`(지역별 추천 베스트 — 마닐라·세부·앙헬레스·클락·보라카이·팔라완·바기오·보홀·두마게테·다바오, 각 10곳)와 `monthly_picks`(12달 × 5곳)를 넣었다. 순서는 여행 플랫폼 순위·투어 상품 수·매체를 거점마다 2곳 이상 비교해 정했고, 근거는 ph-travel-api `sources/picks.json` 에 있다. 월별 추천은 그 달이 그 여행지의 최적기일 때만 넣는다(`build.mjs` 가 검사 — 그래서 MassKara(10월 바콜로드)·Peñafrancia(9월 나가)·Lanzones(10월 카미긴)는 빠졌다).
+    - 조회: `travel.mjs picks`, `TravelDb::picks()`(PHP)·`TravelDb.picks()`(Dart). 필고 여행 앱 첫 화면에 「지역별 추천 베스트 10」·「월별 추천 여행지」를 붙였고, 블록 렌더러를 분야와 무관한 공용 `apps/lib/src/api_widget/ApiBlocks`(type 48개)로 옮겼다.
+    - R2 배포(사용자 요청): ph-travel-api `f6cb0b6`, version `6f3767b06101`, data_version `2026-10-02T06:22:45Z`. 사진이 아직 3장이라 `--allow-few-images` 로 올렸다. 바뀐 JSON 10개(38MB)만 올라갔고 `verify`(파일 580개·CORS)와 공개 주소의 `destinations` 9곳·`monthly_picks` 12달을 확인했다.
 - **남은 일:**
   - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 언제 끌지 사용자와 정한다. 옛 앱(옛 번들·옛 기본 주소)이 남아 있는 동안은 둔다.
   - ph-travel-api `build.mjs` 에 `data_version` 형식 검사를 넣는다. 지금은 `content.mjs check`·`r2.mjs` 만 막는다.
   - 근거 기록 `sources/`: 기존 198곳에는 없다. 항목을 고칠 때마다 채운다.
-  - 사진: 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. gallery 가 2장이 안 되는 16곳(0장 6곳·1장 10곳)을 채운다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.
+  - 사진: **198곳 모두 10장으로 채운다(모자란 사진 1,408장)** — `content.mjs photos`·`fetch` 로 후보를 찾고 직접 열어 확인한다. 다 채우기 전에는 R2 배포에 `--allow-few-images` 가 필요하다. 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.
   - 문서가 가리키는 번역 지침·어휘집(`i18n/GUIDE.md`·`i18n/glossary/<언어>.json`)이 저장소에 없다. 번역 지침과 이름 표는 git 밖 작업 폴더(`_i18n/tools/`)에만 있다. 정리해 git 에 넣는다.
   - Node 22.14 의 내장 SQLite 에는 FTS5 가 없어 `travel.mjs`·`travel-db.mjs` 가 `no such module: fts5` 로 멈춘다. `--no-fts` 도 스키마를 통째로 실행한 뒤 색인 표를 지우는 순서라 같이 멈춘다. FTS5 가 없으면 색인 없이 만들도록 고친다.
   - 낡은 숫자: [rendering.md](rendering.md) §3 의 "지금 쓰이는 type 30개"는 33개다(`table`·`link`·`place_link` 가 쓰인다).

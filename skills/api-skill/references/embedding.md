@@ -221,7 +221,9 @@ final place = travel.place('boracay', lang);   // Map → TravelBlocks(...).plac
   - 임시 파일에 쓴 뒤 이름을 바꾼다.
 - 기기의 시스템 SQLite 는 버전이 제각각이다. 안드로이드 옛 버전에는 FTS5 trigram 이 없을 수 있다. 그래서 `sqlite3` 패키지가 넣어 주는 SQLite 를 쓴다.
 - 오른쪽→왼쪽 언어는 `Directionality(textDirection: travel.dir(lang) == 'rtl' ? TextDirection.rtl : TextDirection.ltr, …)` 안에서 그린다.
-- 필고 앱이라면 이 파일과 `travel_blocks.dart` 를 공용 라이브러리(`apps/lib/src/travel/`)에 두고 앱마다 복사하지 않는다.
+- 필고 앱이라면 이 파일과 `travel_blocks.dart` 를 공용 라이브러리에 두고 앱마다 복사하지 않는다.
+  - 블록 렌더러는 분야와 무관한 `apps/lib/src/api_widget/` 의 `ApiBlocks`(type 48개·모르는 type 대체 규칙·RTL)다. 여행은 `TravelBlocks` 가 여행지 링크만 이어 준다. 밤문화 같은 다른 정보 API 도 같은 렌더러를 쓴다.
+  - 여행 조회·상태·화면은 `apps/lib/src/travel/` 이다. 다른 앱(필고·필톡)은 `TravelState` Provider, 홈에 `TravelRecommendations`, 라우터에 `...createTravelRoutes()` 를 더하면 추천 베스트 10·지역별 베스트 10·월별 추천과 여행지 상세·지도가 그대로 붙는다.
 
 ### 4.3 사진
 

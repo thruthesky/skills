@@ -22,6 +22,8 @@ const HELP = `사용: node travel.mjs <명령> [옵션]
                                 "life vest" 처럼 따옴표로 감싸면 구절. list 의 거르기(--region 등)를 함께 쓸 수 있다
   near <slug|위도,경도> [--limit 5]  직선거리로 가까운 여행지
   values [kind…]                 거르기에 쓸 수 있는 값과 개수 — category·island_group·region·difficulty·tags·months·languages
+  picks [지역|달]                추천 모음 — 지역별 베스트(meta.destinations, 외국인 여행자가 많이 찾는 순서)·월별 추천(meta.monthly_picks)
+                                picks 만 주면 지역과 12달 한눈에, picks 세부 · picks 12 · picks --month Dec 는 그 지역·달의 순위 표
   types [type] [--css]          표시 방법(meta.display.types) 목록 또는 한 type 의 규격
   sql "<SELECT …>"              DB 에 읽기 전용 SQL — 스키마는 assets/travel-schema.sql
 
@@ -368,6 +370,43 @@ switch (command) {
       lines.push(`${kind} (${rows.length}개)\n  ${rows.join(' ')}`);
     }
     out(lines.join('\n\n'));
+    break;
+  }
+
+  case 'picks': {
+    const destinations = meta.destinations ?? [];
+    const monthly = meta.monthly_picks ?? [];
+    if (!destinations.length && !monthly.length) { out('이 API 에는 추천 모음(destinations·monthly_picks)이 없다'); break; }
+    const ids = new Map(db.prepare('SELECT slug, id FROM places').all().map((r) => [r.slug, r.id]));
+    const textOf = (map) => map?.[lang] ?? map?.[bundle.manifest.fallback_language] ?? Object.values(map ?? {})[0] ?? '';
+    const titles = (slugs) => listRows(db, lang, slugs.map((x) => ids.get(x)).filter(Boolean)).map((r) => r.title);
+    const key = args.join(' ').trim();
+    const month = opts.month ? parseMonth(opts.month) : /^\d{1,2}$/.test(key) ? Number(key) : null;
+    if (month) {
+      const pick = monthly.find((m) => m.month === month);
+      if (!pick) fail(`${month}월 추천이 없다`);
+      const rows = listRows(db, lang, pick.places.map((x) => ids.get(x)).filter(Boolean));
+      if (opts.json) out(rows);
+      else out(`${month}월 추천 ${rows.length}곳 — 순서가 추천 순위 · 그 달이 모두 여행 최적기다 · 언어 ${lang}\n\n${table(rows, LIST_COLS, names)}`);
+      break;
+    }
+    if (key) {
+      const low = key.toLowerCase();
+      const d = destinations.find((x) => x.key === low || Object.values(x.name ?? {}).some((n) => String(n).toLowerCase().includes(low)));
+      if (!d) fail(`모르는 지역 — ${key}. 있는 지역: ${destinations.map((x) => `${textOf(x.name)}[${x.key}]`).join(' ')}`);
+      const rows = listRows(db, lang, d.places.map((x) => ids.get(x)).filter(Boolean));
+      if (opts.json) out({ ...d, rows });
+      else out(`${textOf(d.name)}[${d.key}] — ${textOf(d.tagline)}\n외국인 여행자가 많이 찾는 순서 ${rows.length}곳 · 언어 ${lang}\n\n${table(rows, LIST_COLS, names)}`);
+      break;
+    }
+    if (opts.json) { out({ destinations, monthly_picks: monthly }); break; }
+    out([
+      `지역별 추천 베스트 ${destinations.length}곳 — picks <지역> 으로 순위 표`,
+      ...destinations.map((d) => `- ${textOf(d.name)}[${d.key}] ${textOf(d.tagline)}\n  ${titles(d.places).map((t, i) => `${i + 1}.${t}`).join(' ')}`),
+      '',
+      '월별 추천 — picks <달> 로 순위 표',
+      ...monthly.map((m) => `- ${m.month}월: ${titles(m.places).join(' · ')}`),
+    ].join('\n'));
     break;
   }
 

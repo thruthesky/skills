@@ -115,6 +115,9 @@ ph-travel-api/
   - WebP 크기를 읽을 수 있어야 한다.
   - `credit` 이 있어야 하고, `source` 는 `https://` 로 시작해야 한다.
 - **링크:** `card.place`·`place_link.slug` 는 실제로 있는 여행지를 가리켜야 한다. 자기 자신은 안 된다.
+- **추천 모음(meta.json):**
+  - `destinations` — key 형식·중복, icon, 필리핀 안 좌표, `name`·`tagline` 8개 언어, `places` 는 있는 여행지 slug 5~10개(겹침 없음).
+  - `monthly_picks` — 1~12월 12개가 차례로, 달마다 있는 여행지 slug 1~5개. **그 달이 그 여행지의 `best_season.months` 안이어야 한다.**
 
 세부 검사 목록의 전문은 `scripts/build.mjs` 와 `data/README.md` 에 있다. 검사를 바꾸면 이 절도 함께 고친다.
 
@@ -154,7 +157,7 @@ ph-travel-api/
    - Wikimedia Commons 의 CC·퍼블릭 도메인 사진을 1080px WebP 로 줄여 `data/images/<같은 이름>.webp` 에 둔다.
    - 추가 사진은 `-2`, `-3` 을 붙인다.
    - image 노드마다 `credit`(작가 / 라이선스 / 출처)과 `source`(원본 페이지)를 적는다. `width`·`height`·`?v=` 는 빌드가 붙인다.
-   - 사진은 정보와 맞아야 한다 — 파일 페이지의 설명·분류·촬영 위치를 보고 사진을 직접 열어 확인한다. 대표 사진은 장소가 보이는 것, 새 항목은 대표 1장 + gallery 2장([pipeline.md](pipeline.md) §4).
+   - 사진은 정보와 맞아야 한다 — 파일 페이지의 설명·분류·촬영 위치를 보고 사진을 직접 열어 확인한다. 대표 사진은 장소가 보이는 것, 항목마다 대표 1장 + gallery 9장 이상, 모두 10장 이상([pipeline.md](pipeline.md) §4 — `content.mjs photos`·`fetch`).
 4. 글은 `children` 조각으로 쓴다. 금액·시각·날짜·소요 시간·거리·기온은 type 조각으로 따로 자른다.
 5. 새 지역이면 `data/meta.json` 의 `regions` 에 key 와 8개 언어 이름을 더하고, 어휘집에도 넣는다.
 6. 7개 언어 번역본을 만든다(8개 언어가 모두 있어야 배포된다). `scripts/i18n.mjs` 와 `i18n/GUIDE.md` 를 따른다(`data/README.md` §7).

@@ -70,6 +70,8 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
   "island_groups": [{ "key": "visayas", "name": { "…": "…" } }, "…"],
   "regions": [{ "key": "cebu", "island_group": "visayas", "name": { "…": "…" } }, "…"],
   "difficulties": [{ "value": 1, "key": "easy", "name": { "…": "…" } }, "…"],
+  "destinations": [{ "key": "manila", "icon": "location_city", "latitude": 14.5995, "longitude": 120.9842, "name": { "…": "…" }, "tagline": { "…": "…" }, "places": ["intramuros", "…"] }, "…"],
+  "monthly_picks": [{ "month": 1, "places": ["cebu-city", "…"] }, "…"],
   "fields": { "budget": { "type": "price", "label": { "…": "…" }, "icon": "payments", "role": "…" }, "…": "…" },
   "sections": [{ "key": "overview", "icon": "info", "title": { "ko": "한눈에 보기", "…": "…" } }, "…"],
   "display": { "rules": ["…"], "common_props": {}, "inline": {}, "css_variables": "…", "layouts": {}, "types": {} }
@@ -84,12 +86,15 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 | `island_groups` | 권역 3개 — `luzon` `visayas` `mindanao` |
 | `regions` | 지역 35개 — `metro-manila` `cebu` `palawan` … , 속한 `island_group` |
 | `difficulties` | 난이도 3개 — `value` 1·2·3, key `easy` `moderate` `hard` |
+| `destinations` | 지역별 추천 베스트 — 외국인 여행자가 많이 찾는 거점 9곳(`manila` `cebu` `angeles` `boracay` `palawan` `baguio` `bohol` `dumaguete` `davao`). `key`·`icon`·중심 좌표·언어별 `name`·`tagline`·`places`(많이 찾는 순서의 여행지 slug 5~10개). 2026-10-02 추가 |
+| `monthly_picks` | 월별 추천 — 1~12월 12개, 달마다 `places`(여행지 slug 1~5개, 추천 순서). 그 달은 그 여행지의 `best_season.months` 안이다. 2026-10-02 추가 |
 | `fields` | 여행지 속성마다의 type·언어별 label·icon·값 목록(`values`)·역할 |
 | `sections` | 본문 단락 10개 — key·icon·언어별 제목, 순서 고정 |
 | `display` | 표시 방법 — 예전 `content_display_type.json`. type 48개의 규격(props)·역할·권장 HTML·CSS·Flutter·예시·`used` |
 
 - `display.types.<type>.props.<키>.translate: true` 는 언어마다 값이 다른 prop 이다 (text·title·children·alt·tags 의 items·columns·rows·pricing 의 label·price·note 등). 나머지 prop 은 모든 언어가 같다.
 - `used` 는 원본(ko) 기준으로 그 type 이 쓰인 횟수다.
+- 추천 모음(`destinations`·`monthly_picks`)은 키 추가라 호환된다. 없으면(옛 데이터) 추천 화면을 숨기거나 추천도·최적기 순서로 대신한다. DB 에는 `meta.meta_json` 으로 들어가며, 조회는 `travel.mjs picks`·`TravelDb::picks()`(PHP)·`TravelDb.picks()`(Dart)다.
 
 ## 4. places.<lang>.json — 여행지 한 곳의 모양
 

@@ -1,8 +1,8 @@
 ---
 name: api-skill
-description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 ar·en·ja·ko·ru·th·vi·zh)와 같은 형태의 정보 API 전용 스킬. JSON 을 SQLite(travel.db)로 바꿔 언어별 전문 검색으로 여행지 추천·일정·비용·가는 방법·가까운 곳을 답하고, PHP 웹·Flutter 앱·정적 웹에 데이터를 넣는 DB·조회 코드(PHP·Dart)·블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 정보와 맞는 사진 검증, 8개 언어 번역, meta.json 의 data_version(UTC), Cloudflare R2 배포. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·places.json·meta.json·travel.db 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지·정보 콘텐츠를 만들거나 고치거나 가공·검색·분석·문서화·번역·사진·검사·배포(R2)할 때, (4) 다른 정보(밤문화·맛집·병원·비자 등, 예컨대 ph-night-api)를 같은 형태로 새로 만들 때, (5) 사용자가 api-skill 을 부를 때(/api-skill:api-skill, $api-skill) — 인자가 update 이거나 사용자가 "/api-skill update"·"api-skill 업데이트"라고 하면 스킬을 최신으로 갱신한다.
+description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 ar·en·ja·ko·ru·th·vi·zh)와 같은 형태의 정보 API 전용 스킬. JSON 을 SQLite(travel.db)로 바꿔 언어별 전문 검색으로 여행지 추천·일정·비용·가는 방법·가까운 곳을 답하고, PHP 웹·Flutter 앱·정적 웹에 데이터를 넣는 DB·조회 코드(PHP·Dart)·블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 항목마다 정보와 맞는 사진 10장 이상 수집·검증, 8개 언어 번역, meta.json 의 data_version(UTC), Cloudflare R2 배포. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·places.json·meta.json·travel.db 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지·정보 콘텐츠를 만들거나 고치거나 가공·검색·분석·문서화·번역·사진·검사·배포(R2)할 때, (4) 다른 정보(밤문화·맛집·병원·비자 등, 예컨대 ph-night-api)를 같은 형태로 새로 만들 때, (5) 사용자가 api-skill 을 부를 때(/api-skill:api-skill, $api-skill) — 인자가 update 이거나 사용자가 "/api-skill update"·"api-skill 업데이트"라고 하면 스킬을 최신으로 갱신한다.
 metadata:
-  version: "2026.10.01.3"
+  version: "2026.10.02"
   repo: "https://github.com/thruthesky/skills"
   api_repo: "https://github.com/thruthesky/ph-travel-api"
 ---
@@ -51,7 +51,7 @@ ph-travel-api 는 다른 정보를 같은 형태로 만들 때의 **본보기**�
 | SQL·스키마·검색 규칙 | — | [database.md](references/database.md) |
 | 파일 모양·필드·다국어 계약 | — | [api.md](references/api.md) |
 | 화면 그리기·디자인 | `assets/renderer.mjs`·`assets/travel_blocks.dart` 를 가져다 고친다 | [rendering.md](references/rendering.md) |
-| **콘텐츠 만들기·가공·검색→분석→문서화** — 여행지·정보 추가·수정, 사실 확인, 사진, 번역 | §8 다섯 가지 — 조사·사진·8개 언어·data_version·R2 | [pipeline.md](references/pipeline.md) |
+| **콘텐츠 만들기·가공·검색→분석→문서화** — 여행지·정보 추가·수정, 사실 확인, 사진(항목마다 10장 이상), 번역 | §8 다섯 가지 — 조사·사진 10장·8개 언어·data_version·R2 | [pipeline.md](references/pipeline.md) |
 | **배포** | `content.mjs check` → `r2.mjs deploy` → `verify` (Cloudflare R2) | [pipeline.md](references/pipeline.md) §7 |
 | ph-travel-api 저장소 일 — type 추가, 빌드 규격, 저장소 구조 | §9 절대 규칙을 지키며 절차를 따른다 | [maintain.md](references/maintain.md) |
 | **다른 정보**(밤문화·맛집·병원·비자 …)를 같은 형태로 제공·개발·가공 | §7 — ph-travel-api 를 본보기로 설계 → 뼈대 복사 → 작게 끝까지 → 채우기 | [blueprint.md](references/blueprint.md) |
@@ -71,6 +71,8 @@ travelq show el-nido --section getting_there,costs          # 단락만 — 머�
 travelq search 고래상어 스노클링                              # 전문 검색 — 낱말이 모두 들어 있는 곳과 그 문장
 travelq --lang en search '"life vest"' --category beach --month 1   # 따옴표는 구절. list 의 거르기를 함께 쓴다
 travelq near vigan --limit 5                                # 가까운 곳 (위도,경도 도 된다)
+travelq picks                                               # 추천 모음 — 지역별 베스트(외국인이 많이 찾는 순서)·월별 추천 한눈에
+travelq picks 세부                                           # 그 지역의 베스트 표 (key·어느 언어 이름이든) · picks 12 는 12월 추천
 travelq --lang en search whale shark                        # 다른 언어로 — en·zh·ja·ko·th·vi·ru·ar (zh-CN 도 된다)
 travelq sql "SELECT category_key, count(*) FROM places GROUP BY 1"   # 어려운 조건은 읽기 전용 SQL (스키마: database.md)
 travelq info                                                # version·언어·DB 위치
@@ -95,6 +97,7 @@ travelq info                                                # version·언어·D
   | 싸게 | `--max-budget 2000 --sort budget` — 예산 기준(괄호)이 같은 곳끼리 비교 |
   | 다이빙·스노클링 | `--category diving` 과 `search 스노클링` 을 함께 |
   | 지역 + 활동 | `search 鲸鲨 --region 巴拉望` |
+  | "○○에 가면 어디를" · "○월에 어디로" | `picks <지역>`·`picks <달>` — 편집자가 고른 추천 순위. 더 넓게는 `list --month`·`near` |
   | 그 밖 | `values` 로 태그를 보고 고르거나 `search`·`sql` 을 쓴다 |
 
 - **search:**
@@ -129,7 +132,7 @@ travelq info                                                # version·언어·D
 - **주소:** `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2, 2026-10-01 부터)
   - 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)는 옛 앱을 위해 당분간 같은 내용을 내보낸다. 새 코드는 R2 주소를 쓴다.
   - `manifest.json` — `{ version, languages, source_language: ko, fallback_language: en, meta, places: { <lang>: 파일 } }`
-  - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 속성·단락, 표시 방법 `display`(type 48개), 정보를 가공한 UTC 시각 `data_version`
+  - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 추천 모음(`destinations` 지역별 베스트·`monthly_picks` 월별 추천), 속성·단락, 표시 방법 `display`(type 48개), 정보를 가공한 UTC 시각 `data_version`
   - `places.<lang>.json` — 그 언어의 여행지 전체
   - `images/*.webp` — 사진
 - **version 은 전체에 하나인 내용 해시다.** 바뀌었을 때만 다시 받는다. `meta.data_version`(가공한 UTC 시각)은 화면의 "정보 기준일"용이고 비교에 쓰지 않는다.
@@ -156,7 +159,7 @@ travelq info                                                # version·언어·D
 - **Flutter 앱:**
   - `assets/travel_db.dart` — `sqlite3` 패키지. `openEmbedded` 가 애셋 DB 를 버전이 바뀔 때만 복사한다.
   - `assets/travel_blocks.dart` — 48개 type 위젯, RTL 을 지원한다.
-  - 필고 앱은 공용 라이브러리(`apps/lib/src/travel/`)에 둔다.
+  - 필고 앱은 공용 라이브러리에 둔다 — 블록 렌더러는 분야와 무관한 `apps/lib/src/api_widget/`(`ApiBlocks`, type 48개), 여행 조회·상태·화면은 `apps/lib/src/travel/`. 필고·필톡 등 다른 앱은 `TravelRecommendations`(추천 베스트·지역별 베스트·월별 추천)와 `createTravelRoutes()` 로 붙인다.
 - **정적 웹:** `export` 폴더 + `renderer.js`(`renderPlace`·`renderPlaceCard`·`enhance`) + `travel.css`.
 - **언어:**
   - 없는 언어는 대체 언어(en)로 보인다.
@@ -201,9 +204,12 @@ travelq info                                                # version·언어·D
 1. **인터넷 검색을 넉넉히 하고, 같은 사실을 여러 출처에서 비교해 가공한다.**
    - 요금·시간표·노선·규정·폐쇄처럼 바뀌는 사실은 서로 다른 출처 2곳 이상, 그중 하나는 공식(운영 주체·정부)이거나 12개월 안의 공신력 있는 출처여야 한다.
    - 검색 결과 요약만 보지 말고 페이지 본문과 날짜를 확인한다. 출처와 판단은 데이터 저장소의 `sources/<id>-<slug>.json` 에 남긴다(git 에 넣고 배포하지 않는다).
-2. **모든 항목에 사진을 넣고, 사진은 정보와 맞는 정확한 사진이어야 한다.**
-   - Commons 파일 페이지의 설명·분류·촬영 위치를 보고, 사진을 직접 열어 본문이 말하는 그곳·그 모습인지 확인한다.
-   - `content.mjs images` 로 촬영 위치·라이선스·작가를 대조한다. 맞는 사진을 구할 수 없으면 그 항목을 넣지 않는다.
+2. **항목마다 사진을 반드시 10장 이상 모으고(대표 1 + gallery 9 이상), 모든 사진이 정보와 맞는 정확한 사진이어야 한다.**
+   - 10장은 그곳을 여러 면에서 보여 준다 — 대표 전경, 다른 각도·시간의 전경, `highlights` 의 명소, 활동·체험, 그곳의 것이 분명한 음식·축제. 같은 구도를 여러 장 넣지 않는다.
+   - `content.mjs photos --id <번호>` 로 Commons 후보(분류·이름·좌표 주변)를 찾고, `content.mjs fetch` 로 1080px WebP 와 credit·source 가 채워진 image 노드를 만든다.
+   - Commons 파일 페이지의 설명·분류·촬영 위치를 보고, 받은 사진을 직접 열어 본문이 말하는 그곳·그 모습인지 확인한다. `content.mjs images` 로 촬영 위치·라이선스·작가를 대조한다.
+   - 10장이 안 되는 항목이 있으면 `content.mjs check` 와 `r2.mjs deploy` 가 배포를 막는다. 옛 항목(지금 198곳 모두 3장)을 채우는 동안 다른 고침을 내보낼 때만 `--allow-few-images` 를 쓴다. 새 항목·고치는 항목은 10장을 채운다.
+   - 맞는 사진을 10장 구할 수 없으면 맞지 않는 사진으로 채우지 말고 그 항목을 넣지 않는다.
 3. **8개 언어로 번역한다 — `ar`·`en`·`ja`·`ko`·`ru`·`th`·`vi`·`zh`.** 원본(ko)을 먼저 고치고 `i18n.mjs` 로 맞춘다. 하나라도 빠지면 `content.mjs check` 와 `r2.mjs` 가 배포를 막는다.
 4. **`meta.json` 의 모든 형식을 따르고, 정보를 가공한 UTC 시각을 `data_version` 으로 적는다.**
    - 노드·속성·단락·값 목록은 `meta.json` 규격 그대로 쓴다(`build.mjs` 가 검사한다).
@@ -217,7 +223,9 @@ travelq info                                                # version·언어·D
 # 데이터 저장소 뿌리에서
 node <스킬 폴더>/scripts/content.mjs stamp data/meta.json            # 4. data_version
 node scripts/build.mjs                                               # 4. meta.json 규격 검사
-node <스킬 폴더>/scripts/content.mjs check --dir _site/v2             # 2·3·4. 사진·8개 언어·data_version
+node <스킬 폴더>/scripts/content.mjs photos --dir _site/v2 --id 201    # 2. 더할 사진 후보 (Commons)
+node <스킬 폴더>/scripts/content.mjs fetch --title "File:….jpg" --out data/images/201-x-4.webp --alt 이름  # 2. 받기 → image 노드
+node <스킬 폴더>/scripts/content.mjs check --dir _site/v2             # 2·3·4. 항목마다 사진 10장·8개 언어·data_version
 node <스킬 폴더>/scripts/content.mjs images --dir _site/v2 --ids 201  # 2. 사진을 Commons 정보와 대조
 node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph --dry-run   # 5. 배포 계획
 node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph             # 5. 배포 + 공개 주소 확인
@@ -238,16 +246,16 @@ node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph          
 
 | 파일 | 내용 |
 |------|------|
-| `scripts/travel.mjs` | 조회 도구 — list·show·search·near·values·types·sql·info·countries, `--lang` (캐시 SQLite DB 로 답함) |
+| `scripts/travel.mjs` | 조회 도구 — list·show·search·near·picks·values·types·sql·info·countries, `--lang` (캐시 SQLite DB 로 답함) |
 | `scripts/travel-db.mjs` | 받기(sync)·SQLite 만들기(build)·넣어 쓸 폴더(export). 모듈로도 쓴다 (Node 22.13+, 외부 패키지 없음) |
-| `scripts/content.mjs` | 콘텐츠 도구 — `stamp`(data_version 찍기)·`check`(배포 규격 — 8개 언어·data_version·사진·credit)·`images`(사진을 Commons 촬영 위치·라이선스·작가와 대조) |
+| `scripts/content.mjs` | 콘텐츠 도구 — `stamp`(data_version 찍기)·`check`(배포 규격 — 8개 언어·data_version·항목마다 사진 10장·credit)·`images`(사진을 Commons 촬영 위치·라이선스·작가와 대조)·`photos`(더할 사진 후보 찾기)·`fetch`(사진 받기 → 1080px WebP·image 노드) |
 | `scripts/r2.mjs` | Cloudflare R2 배포 — `check`·`ls`·`deploy`(바뀐 것만, 사진 → 항목 → meta → manifest 순서, `--prune`)·`verify`(공개 주소 확인)·`cors`(버킷 CORS 보기·설정). 외부 패키지 없이 SigV4 서명 |
 | `scripts/apis.json` | 나라별 API 주소(`base`)·R2 prefix(`r2_prefix`) 목록 |
 | `scripts/update.sh` | `update` 인자 — 플러그인이면 범위마다 `claude plugin update`, 폴더 설치면 묶음을 받아 바꾸고, 원본 저장소면 `git pull --ff-only` |
 | `.claude-plugin/plugin.json` | Claude Code 플러그인 정보 (이름·version) |
 | `assets/travel-schema.sql` | SQLite 스키마 — 표·인덱스·FTS5 trigram·목록 뷰 |
-| `assets/TravelDb.php` · `assets/travel-page.php` | PHP 조회 클래스 · 예시 페이지 |
-| `assets/travel_db.dart` | Dart·Flutter 조회 클래스 (sqlite3) |
+| `assets/TravelDb.php` · `assets/travel-page.php` | PHP 조회 클래스(`picks()` 추천 모음 포함) · 예시 페이지 |
+| `assets/travel_db.dart` | Dart·Flutter 조회 클래스 (sqlite3, `picks()` 추천 모음 포함) |
 | `assets/renderer.mjs` · `assets/travel_blocks.dart` | 웹 · Flutter 블록 렌더러 (48개 type, RTL) |
 | `references/pipeline.md` | 콘텐츠 파이프라인 — 다섯 가지, 출처 등급·사실별 최소 출처·근거 기록 형식, 사진 기준·검사, 8개 언어, data_version, R2 배포·캐시·CORS, 끝났다는 기준 |
 | `references/embedding.md` | 넣어 쓰기 — 원칙, PHP 웹·Flutter 앱·정적 웹 절차 |

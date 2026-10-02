@@ -5,7 +5,7 @@
 // 키 파일: ~/Documents/Keys/Cloudflare/r2/admin-permissions-all-r2.txt (R2_KEYS 로 바꿀 수 있다)
 //   node r2.mjs check [--prefix ph-travel-api/v2/]                       키 파일·접속 확인 (읽기 전용)
 //   node r2.mjs ls <prefix>                                              올라가 있는 파일
-//   node r2.mjs deploy --dir _site/v2 --prefix ph-travel-api/v2/ [--dry-run] [--prune]
+//   node r2.mjs deploy --dir _site/v2 --prefix ph-travel-api/v2/ [--dry-run] [--prune] [--allow-few-images]
 //   node r2.mjs deploy --dir _site/v2 --country ph                       prefix 를 apis.json 의 r2_prefix 로
 //   node r2.mjs verify --dir _site/v2 --prefix ph-travel-api/v2/          공개 주소로 받아 version·사진·CORS 확인
 //   node r2.mjs cors [--set [--origins https://a,https://b] [--force]]    버킷 CORS 보기·설정 (키에 R2 관리 권한 필요)
@@ -190,7 +190,8 @@ function resolvePrefix(opts) {
  */
 async function deploy(dir, opts) {
   const prefix = resolvePrefix(opts);
-  const gate = checkBuild(dir);
+  const gate = checkBuild(dir, { allowFewImages: Boolean(opts['allow-few-images']) });
+  for (const w of gate.warnings.filter((x) => /미만/.test(x))) console.log(`(알림) ${w}`);
   if (gate.errors.length) fail(`배포 규격 오류 ${gate.errors.length}건 — 올리지 않는다.\n${gate.errors.slice(0, 50).map((e) => `  - ${e}`).join('\n')}`);
   const cfg = loadConfig(opts.keys);
   const { manifest, meta, itemsKey } = gate;
@@ -250,7 +251,7 @@ async function verify(dir, opts, cfg = loadConfig(opts.keys)) {
   const cors = res.headers.get('access-control-allow-origin');
   const meta = await (await fetch(`${base}${remote.meta}?t=${Date.now()}`)).json();
   if (meta.version !== local.version) problems.push(`meta version 이 다르다 — ${meta.version}`);
-  const gate = checkBuild(dir);
+  const gate = checkBuild(dir, { allowFewImages: true });
   const files = [...Object.values(local[gate.itemsKey] ?? {}), ...gate.images];
   // ETag 는 R2 가 준 MD5 다. 압축해서 보내면 ETag 가 W/"…" 로 바뀌고 길이가 빠지므로 identity 로 묻고, W/ 와 따옴표를 떼고 비교한다.
   await pool(files, 16, async (rel) => {

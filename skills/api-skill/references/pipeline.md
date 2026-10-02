@@ -20,7 +20,7 @@ api-skill 로 정보 콘텐츠를 만들거나 고칠 때의 규격이다. 여�
 | # | 규칙 | 왜 | 무엇이 막나 |
 |---|------|----|-------------|
 | 1 | **인터넷 검색을 넉넉히 하고, 같은 사실을 여러 출처에서 비교해 가공한다** | 출처 하나는 낡았거나 틀리기 쉽다. 200곳을 다시 확인했을 때 좌표 34곳·사진 3장·노선 여러 개가 틀려 있었다 | 근거 기록 `sources/*.json` (§3) |
-| 2 | **모든 항목에 사진을 넣고, 사진은 정보와 맞는 정확한 사진이어야 한다** | 다른 장소의 사진 한 장이 글 전체의 신뢰를 깎는다 | `content.mjs check`·`images` + 눈으로 확인 (§4) |
+| 2 | **항목마다 사진을 10장 이상 모으고, 사진은 모두 정보와 맞는 정확한 사진이어야 한다** | 사진 3장으로는 그곳의 전경·명소·활동·계절을 보여 주지 못한다. 다른 장소의 사진 한 장은 글 전체의 신뢰를 깎는다 | `content.mjs check`(10장 미만이면 배포 거부)·`photos`·`fetch`·`images` + 눈으로 확인 (§4) |
 | 3 | **8개 언어로 번역한다 — ar·en·ja·ko·ru·th·vi·zh** | 웹·앱이 8개 언어로 보여 준다. 하나라도 빠지면 그 언어 사용자에게는 대체 언어(en)가 보인다 | `content.mjs check`, `r2.mjs` 가 배포를 거부 (§5) |
 | 4 | **`meta.json` 의 모든 형식을 따르고, `meta.json` 에 가공한 UTC 시각을 `data_version` 으로 적는다** | 규격 밖의 노드는 화면이 그리지 못한다. 정보 기준 시각은 웹·앱이 "정보 기준일"로 보여 준다 | `build.mjs`, `content.mjs check` (§6) |
 | 5 | **배포는 Cloudflare R2 로 한다** | 웹·앱이 공개 주소에서 곧바로 받는다 | `r2.mjs deploy`·`verify` (§7) |
@@ -35,7 +35,7 @@ api-skill 로 정보 콘텐츠를 만들거나 고칠 때의 규격이다. 여�
 | 0. 판별 | 작업 종류와 맞는 정보인지 본다 | — | SKILL.md §3, [blueprint.md](blueprint.md) §1 |
 | 1. 조사 | 검색하고 출처를 비교한다 | `sources/<id>-<slug>.json` | §3 |
 | 2. 만들기·가공 | 원본 언어(ko)로 쓴다. 기존 자료는 일회성 스크립트로 바꾼다 | `data/ko/<id>-<slug>.json` | 저장소 `data/README.md`, [blueprint.md](blueprint.md) §7 |
-| 3. 사진 | 찾고, 보고, 줄이고, 출처를 적는다 | `data/images/<id>-<slug>[-2\|-3].webp` | §4 |
+| 3. 사진 | 10장 이상 찾고, 보고, 줄이고, 출처를 적는다 | `data/images/<id>-<slug>[-2 … -10].webp` | §4 |
 | 4. 번역 | 7개 언어를 맞춘다 | `data/<언어>/<id>-<slug>.json` | §5 |
 | 5. 버전 | `data_version` 을 찍는다 | `data/meta.json` | §6.2 |
 | 6. 검사·분석 | 빌드 → 배포 규격 검사 → 조회 도구로 질문에 답해 본다 | `_site/v2/` | §8 |
@@ -46,7 +46,7 @@ api-skill 로 정보 콘텐츠를 만들거나 고칠 때의 규격이다. 여�
 # 저장소 뿌리에서 — 5~6단계와 8단계
 node <스킬>/scripts/content.mjs stamp data/meta.json          # data_version = 지금 UTC 시각
 node scripts/build.mjs                                         # 규격 검사 + _site/v2/
-node <스킬>/scripts/content.mjs check --dir _site/v2           # 8개 언어·data_version·사진·credit
+node <스킬>/scripts/content.mjs check --dir _site/v2           # 8개 언어·data_version·항목마다 사진 10장·credit
 node <스킬>/scripts/content.mjs images --dir _site/v2 --ids 201,202   # 새·바뀐 항목의 사진을 Commons 정보와 대조
 node <스킬>/scripts/travel.mjs --base _site/v2 search <새 항목 이름>     # 분석 — 질문에 답이 나오는지
 node <스킬>/scripts/r2.mjs deploy --dir _site/v2 --country ph --dry-run  # 배포 계획
@@ -124,19 +124,38 @@ node <스킬>/scripts/r2.mjs deploy --dir _site/v2 --country ph            # 배
 
 ## 4. 사진 — 정보와 맞는 정확한 사진
 
-### 4.1 몇 장
+### 4.1 몇 장 — 항목마다 10장 이상
 
-- **항목마다 대표 사진(`image`) 1장은 반드시 있어야 한다.** 없으면 `content.mjs check` 와 `r2.mjs` 가 배포를 막는다.
-- 새 항목은 `gallery` 2장을 더해 모두 3장을 채운다(지금 198곳 중 182곳이 3장이다).
-- 정확한 사진을 구할 수 없으면 그 항목을 넣지 않거나 다른 항목으로 바꾼다. Commons 에 사진이 없는 단후간 섬·카파르칸 폭포를 다른 곳으로 바꾼 것이 그 예다.
+- **항목마다 사진을 10장 이상 모은다 — 대표 사진(`image`) 1장 + `gallery` 9장 이상.** 2026-10-02 에 3장에서 10장으로 올렸다. 사진 3장으로는 그곳이 어떤 곳인지 보여 주지 못해서다.
+- `content.mjs check` 는 10장이 안 되는 항목이 하나라도 있으면 오류로 끝나고, `r2.mjs deploy` 도 같은 검사로 배포를 막는다.
+  - 2026-10-02 지금 198곳 모두 3장이다(모자란 사진 1,408장). 옛 항목을 채우는 동안 다른 고침을 내보내야 하면 `--allow-few-images` 를 붙인다. 이때도 모자란 항목 수가 알림으로 나온다.
+  - **새 항목과 고치는 항목은 이 옵션 없이 10장을 채운다.** 항목을 고칠 때는 그 항목의 사진부터 10장으로 채운다.
+- 10장은 같은 사진을 여러 장 넣는 것이 아니라 **그곳을 여러 면에서 보여 주는 것**이다. 아래 종류를 고루 섞는다.
+
+  | 종류 | 예 (비간) | 장수 |
+  |------|-----------|------|
+  | 대표 전경 — 그곳을 한눈에 알 수 있는 사진 | 칼레 크리솔로고 거리 전경 | 1 (대표 사진) |
+  | 다른 각도·시간의 전경 | 밤의 칼레 크리솔로고, 하늘에서 본 구시가 | 2~3 |
+  | 본문 `highlights` 의 명소·볼거리 | 비간 대성당, 바타이 탑, 살세도 광장 분수, 부르나이 도자기 공방 | 3~4 |
+  | 활동·체험 | 칼레사(마차) 타기, 도자기 빚기 | 1~2 |
+  | 음식·생활·축제 — 그곳의 것이 분명할 때만 | 비간 롱가니사 축제 거리 공연 | 0~2 |
+
+- 대표 사진은 장소가 보이는 사진이다. 생물·음식·활동 사진은 gallery 에 둔다(§4.4 의 파밀라칸 섬 예).
+- 거의 같은 구도의 사진, 같은 작가가 같은 날 연달아 찍은 사진은 한 장만 고른다.
+- 정확한 사진을 10장 구할 수 없으면 그 항목을 넣지 않거나 다른 항목으로 바꾼다. 맞지 않는 사진으로 장수를 채우지 않는다. Commons 에 사진이 없는 단후간 섬·카파르칸 폭포를 다른 곳으로 바꾼 것이 그 예다.
 
 ### 4.2 고르는 순서
 
-1. **찾는다** — Wikimedia Commons 에서 `"<영문 이름>" <지역>`, `Category:<이름>`, 그 장소 위키백과 문서에 실린 사진.
+1. **찾는다** — `content.mjs photos --dir _site/v2 --id <번호>` 가 후보를 모아 준다. 그곳 이름의 분류(`Category:<영문 이름>`), 이름 검색, 좌표 주변(`--km`, 기본 3km)에서 찾고, 이미 쓴 사진·가로 1080px 미만·쓸 수 없는 라이선스(NC·ND·출처 불명)는 뺀다.
+   - 모자라면 직접 찾는다 — Commons 에서 `"<영문 이름>" <지역>`, 하위 분류(`Category:<명소 이름>`), 그 장소 위키백과 문서에 실린 사진.
 2. **파일 페이지를 읽는다** — 제목·설명·분류·촬영 위치(Location)·촬영일·라이선스.
-3. **직접 본다** — 받은 파일을 Read 로 열어 본다. WebP 가 안 보이면 `sips -s format jpeg x.webp --out x.jpg` 로 바꿔서 본다.
-4. **§4.3 의 기준을 모두 통과하면 줄인다** — 가로 1080px WebP: `cwebp -q 80 -resize 1080 0 원본.jpg -o data/images/<id>-<slug>.webp` (또는 `magick 원본.jpg -resize 1080x webp:…`).
-5. **출처를 적는다** — image 노드의 `alt`(그 언어 이름), `credit`(`작가 / 라이선스 / Wikimedia Commons`), `source`(파일 페이지 https 주소). 근거 기록 `images` 에도 무엇을 보고 맞다고 판단했는지 적는다.
+3. **받는다** — `content.mjs fetch --title "File:….jpg" --out data/images/<id>-<slug>-<n>.webp --alt <이름>`.
+   - Commons 가 가로 1080px 로 줄인 사진을 받아 WebP(`cwebp -q 80`, 없으면 `magick`)로 저장한다.
+   - 데이터에 넣을 image 노드(`credit` = `작가 / 라이선스 / Wikimedia Commons`, `source` = 파일 페이지 주소)를 출력하고, 받은 원본 JPEG 의 경로를 알린다.
+   - 손으로 할 때는 `cwebp -q 80 -resize 1080 0 원본.jpg -o data/images/<id>-<slug>-<n>.webp` 다.
+4. **직접 본다** — fetch 가 알려 준 JPEG(또는 `sips -s format jpeg x.webp --out x.jpg` 로 바꾼 파일)를 Read 로 열어 본다. §4.3 의 기준을 하나라도 못 넘으면 지운다.
+5. **넣는다** — 원본(`data/ko/`)의 `gallery.items` 에 image 노드를 넣고 `alt` 를 그 사진의 내용으로 쓴다(예: `비간 대성당`). 근거 기록 `images` 에 무엇을 보고 맞다고 판단했는지 적는다.
+6. **번역한다** — gallery 가 늘면 번역본과 모양이 달라진다. `alt` 는 번역하는 글이라 `i18n.mjs export` → 번역 → `check` → `import` 로 7개 언어를 맞춘다(§5).
 
 ### 4.3 맞는 사진의 기준
 
@@ -259,7 +278,7 @@ node <스킬>/scripts/r2.mjs verify --dir _site/v2 --country ph             # �
 
 ### 7.4 r2.mjs 가 하는 일
 
-1. **배포 규격 검사** — `content.mjs` 의 `checkBuild`. 8개 언어, `data_version` 형식, manifest·meta·언어 파일의 version·count 일치, 모든 항목의 대표 사진, 모든 사진의 파일·`alt`·`credit`·`source`. 하나라도 어기면 아무것도 올리지 않는다.
+1. **배포 규격 검사** — `content.mjs` 의 `checkBuild`. 8개 언어, `data_version` 형식, manifest·meta·언어 파일의 version·count 일치, 모든 항목의 대표 사진과 항목마다 사진 10장 이상, 모든 사진의 파일·`alt`·`credit`·`source`. 하나라도 어기면 아무것도 올리지 않는다. 옛 항목의 사진을 채우는 중에는 `--allow-few-images` 로 장수 검사만 알림으로 낮출 수 있다(§4.1).
 2. **바뀐 파일만** — 버킷 목록의 ETag(R2 는 MD5)와 로컬 MD5 를 비교한다. 다시 실행하면 이어서 올린다.
 3. **순서가 안전장치다** — 사진·기타 → 언어별 항목 파일 → `meta.json` → `manifest.json`. 클라이언트는 manifest 를 보고 나머지를 받으므로, 중간에 멈춰도 옛 manifest 가 옛 파일을 가리켜 그대로 동작한다.
 4. **지우기(`--prune`)** — 버킷에만 있는 파일을 manifest 를 바꾼 **뒤에** 지운다. 옛 manifest 를 받은 클라이언트가 아직 옛 사진을 가리킬 수 있어서다.
@@ -340,7 +359,7 @@ await r2Request(cfg, 'PUT', '', { query: { cors: '' }, body,
 ## 9. 끝났다는 기준
 
 - [ ] 바뀐 사실마다 `sources/` 에 출처가 2곳 이상 있다(요금·규정은 A 등급 포함)
-- [ ] 모든 항목에 대표 사진이 있고, 새 항목은 3장이다. `content.mjs images` 의 "고칠 것"이 0이고, "먼저 볼 것"·새 사진은 눈으로 확인했다
+- [ ] 새 항목과 고친 항목은 사진이 10장 이상이고(대표 1 + gallery 9), 전경·명소·활동을 고루 담았다. `content.mjs images` 의 "고칠 것"이 0이고, "먼저 볼 것"·새 사진은 모두 눈으로 확인했다
 - [ ] 8개 언어가 모두 있고 `i18n.mjs check` 가 통과한다
 - [ ] `data_version` 을 찍고 다시 빌드했다. `build.mjs` 가 exit 0 이다
 - [ ] `content.mjs check` 가 통과한다

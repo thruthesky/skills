@@ -103,6 +103,40 @@ class TravelDb {
       FROM terms t WHERE t.kind = ? AND t.lang = ? ORDER BY count DESC, t.key''', [kind, lang]).map(Map.of).toList();
   }
 
+  /// 추천 모음 — 지역별 추천 베스트(meta.destinations, 외국인 여행자가 많이 찾는 순서)와 월별 추천(meta.monthly_picks).
+  /// 여행지는 목록 한 줄(place_list)로, 데이터의 추천 순서 그대로다. 추천 모음이 없는 옛 데이터면 둘 다 비어 있다.
+  ({List<Map<String, Object?>> destinations, Map<int, List<Map<String, Object?>>> months}) picks(String lang) {
+    final metaJson = jsonDecode(db.select("SELECT value FROM meta WHERE key = 'meta_json'").firstOrNull?['value'] as String? ?? '{}') as Map<String, dynamic>;
+    final fallback = meta['fallback_language'] ?? 'en';
+    String text(Object? map) => map is Map ? '${map[lang] ?? map[fallback] ?? map.values.firstOrNull ?? ''}' : '';
+    final ids = {for (final r in db.select('SELECT slug, id FROM places')) r['slug'] as String: r['id'] as int};
+    List<Map<String, Object?>> items(Object? slugs) {
+      final want = [for (final slug in slugs as List? ?? const []) ?ids['$slug']];
+      final rows = _rows(want, lang);
+      return [for (final id in want) ?rows[id]];
+    }
+
+    return (
+      destinations: [
+        for (final d in metaJson['destinations'] as List? ?? const [])
+          if (d is Map)
+            {
+              'key': d['key'],
+              'icon': d['icon'],
+              'latitude': d['latitude'],
+              'longitude': d['longitude'],
+              'name': text(d['name']),
+              'tagline': text(d['tagline']),
+              'items': items(d['places']),
+            },
+      ],
+      months: {
+        for (final m in metaJson['monthly_picks'] as List? ?? const [])
+          if (m is Map && m['month'] is int) m['month'] as int: items(m['places']),
+      },
+    );
+  }
+
   /// 여행지 목록 — (전체 수, 이 쪽의 행들). 행은 place_list 뷰의 열과 같다.
   ({int total, List<Map<String, Object?>> items}) list(TravelFilter f, String lang, {int limit = 30, int offset = 0}) {
     final (sqlWhere, args) = _filterWhere(f, lang);
