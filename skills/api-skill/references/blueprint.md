@@ -135,8 +135,8 @@
 6. **조회 구현과 렌더러** — PHP·Dart 를 옮기고 세 구현의 결과를 비교한다. 카드·상세 배치를 고친다.
 7. **항목 채우기** — 원본 언어로 전체를 쓴다. 사실 확인(출처 2곳 이상, `sources/`)과 사진(정보와 맞는 사진, `content.mjs images`)을 함께 한다([pipeline.md](pipeline.md) §3·§4). 여러 파일에 걸친 사실(요금·노선·규정)은 교차 점검으로 맞춘다.
 8. **번역 채우기** — 8개 언어 모두 전체를 옮긴다. 폴더를 만들면 그 언어는 모든 항목이 있어야 빌드가 통과한다.
-9. **배포** — `content.mjs stamp` → `build.mjs` → `content.mjs check` → `r2.mjs deploy --prefix <저장소>/v1/` → 공개 주소 확인(`verify`). `apis.json` 에 `r2_prefix` 를 더한다. 배포와 push 는 사용자가 요청할 때만 한다([pipeline.md](pipeline.md) §7).
-10. **넣어 쓰기** — 웹·앱에 넣는다([embedding.md](embedding.md) 의 절차 그대로). 필고 저장소에는 서브모듈로 두고, 이 저장소에서 먼저 커밋·push 한 뒤 포인터를 커밋한다.
+9. **배포** — `content.mjs stamp` → `build.mjs` → `content.mjs check` → `r2.mjs deploy --prefix <저장소>/v1/` → 공개 주소 확인(`verify`). `apis.json` 에 `r2_prefix` 를 더한다. 배포는 사용자가 요청할 때만 R2 로 한다. 데이터 저장소는 GitHub 에 push 하지 않는다([pipeline.md](pipeline.md) §7).
+10. **넣어 쓰기** — 웹·앱에 넣는다([embedding.md](embedding.md) 의 절차 그대로). 필고 저장소에는 서브모듈로 둘 수 있지만, 데이터 저장소를 GitHub 에 push 하지 않으므로 포인터는 커밋하지 않는다. 웹·앱은 R2 주소에서 받는다.
 11. **기록** — `history.md` 에 결정과 남은 일을 적는다.
 
 ## 7. 기존 자료를 이 형태로 바꾸기(가공)

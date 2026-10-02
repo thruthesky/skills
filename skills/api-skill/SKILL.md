@@ -2,7 +2,7 @@
 name: api-skill
 description: 여행 정보 API(ph-travel-api — 필리핀 여행지 198곳, 8개 언어 ar·en·ja·ko·ru·th·vi·zh)와 같은 형태의 정보 API 전용 스킬. JSON 을 SQLite(travel.db)로 바꿔 언어별 전문 검색으로 여행지 추천·일정·비용·가는 방법·가까운 곳을 답하고, PHP 웹·Flutter 앱·정적 웹에 데이터를 넣는 DB·조회 코드(PHP·Dart)·블록 렌더러를 제공하며, 콘텐츠를 규격대로 만들게 한다 — 여러 출처 비교 조사, 항목마다 정보와 맞는 사진 10장 이상 수집·검증, 8개 언어 번역, meta.json 의 data_version(UTC), Cloudflare R2 배포. 다음 경우 반드시 사용 — (1) 필리핀 여행지·여행 정보 질문(보라카이, 세부, 엘니도, 보홀, 12월 해변, 예산, 일정, 가는 방법 등, 어느 언어든), (2) ph-travel-api·places.json·meta.json·travel.db 를 쓰는 웹/앱 개발, 필고 웹사이트·앱에 여행 정보 넣기, 화면 디자인, (3) 여행지·정보 콘텐츠를 만들거나 고치거나 가공·검색·분석·문서화·번역·사진·검사·배포(R2)할 때, (4) 다른 정보(밤문화·맛집·병원·비자 등, 예컨대 ph-night-api)를 같은 형태로 새로 만들 때, (5) 사용자가 api-skill 을 부를 때(/api-skill:api-skill, $api-skill) — 인자가 update 이거나 사용자가 "/api-skill update"·"api-skill 업데이트"라고 하면 스킬을 최신으로 갱신한다.
 metadata:
-  version: "2026.10.02"
+  version: "2026.10.02.1"
   repo: "https://github.com/thruthesky/skills"
   api_repo: "https://github.com/thruthesky/ph-travel-api"
 ---
@@ -130,7 +130,7 @@ travelq info                                                # version·언어·D
 자세한 것은 [api.md](references/api.md) 에 있다.
 
 - **주소:** `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2, 2026-10-01 부터)
-  - 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)는 옛 앱을 위해 당분간 같은 내용을 내보낸다. 새 코드는 R2 주소를 쓴다.
+  - 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/`(GitHub Pages)는 2026-10-01 판에서 멈춘다 — ph-travel-api 는 GitHub 에 올리지 않는다. 새 코드는 R2 주소만 쓴다.
   - `manifest.json` — `{ version, languages, source_language: ko, fallback_language: en, meta, places: { <lang>: 파일 } }`
   - `meta.json` — 언어, 다국어 분류·권역·지역·난이도, 추천 모음(`destinations` 지역별 베스트·`monthly_picks` 월별 추천), 속성·단락, 표시 방법 `display`(type 48개), 정보를 가공한 UTC 시각 `data_version`
   - `places.<lang>.json` — 그 언어의 여행지 전체
@@ -235,12 +235,12 @@ node <스킬 폴더>/scripts/r2.mjs deploy --dir _site/v2 --country ph          
 
 절차·검사·검증은 [maintain.md](references/maintain.md) 에 있다.
 
-1. **운영 배포는 R2 업로드(`r2.mjs deploy`)이고, 사용자가 요청할 때만 한다.** 작업은 커밋까지만 한다. `main` push 는 옛 주소(GitHub Pages)에도 배포되므로 push 도 요청할 때만 한다.
-2. **배포·push 전에 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 빌드가 실패하면 JSON 을 쓰지 않고 exit 1 이다.
+1. **배포는 오직 Cloudflare R2(`r2.mjs deploy`)이고, 사용자가 요청할 때만 한다. ph-travel-api 는 GitHub 에 push 하지 않는다**(2026-10-02 사용자 결정). git 은 이 컴퓨터의 작업 기록이고, 작업은 커밋까지만 한다. 그래서 필고 저장소의 `submodules/ph-travel-api` 포인터도 커밋하지 않는다(GitHub 에 없는 커밋을 가리키게 된다).
+2. **배포 전에 `node scripts/build.mjs` 와 `content.mjs check` 가 성공해야 한다.** 빌드가 실패하면 JSON 을 쓰지 않고 exit 1 이다.
 3. `_site/` 는 커밋하지 않는다. 외부 npm 패키지를 넣지 않는다.
 4. **원본은 한국어 `data/ko/` 다.** 원본을 먼저 고치고 번역본(7개 언어)은 `scripts/i18n.mjs` 로 맞춘다(`data/README.md` §7). 필고의 `apps/travel/data/travel/` 은 옛 사본이다.
 5. **R2 키 파일의 값은 출력·대화·커밋·문서에 쓰지 않는다.** 경로만 적고, 읽는 일은 `r2.mjs` 에 맡긴다. 이 키는 R2 관리 권한이라 계정의 R2 버킷 6개를 모두 바꿀 수 있다 — 버킷 `files` 의 `<이름>/v<숫자>/` 밖은 건드리지 않는다.
-6. **이 스킬의 원본은 [thruthesky/skills](https://github.com/thruthesky/skills) 저장소의 `skills/api-skill/` 이다.** ph-travel-api 저장소에는 스킬 파일이 없고, `.claude/settings.json` 으로 플러그인을 켠다. 스킬을 고치면 `SKILL.md` 의 `metadata.version`, `.claude-plugin/plugin.json` 의 `version`, 마켓플레이스(`.claude-plugin/marketplace.json`)의 `version` 을 같은 값으로 올린다. 올리지 않으면 Claude Code 플러그인 사용자에게 업데이트가 가지 않는다.
+6. **이 스킬의 원본은 이 컴퓨터의 `~/apps/skills/skills/api-skill/` 하나뿐이다**([thruthesky/skills](https://github.com/thruthesky/skills) 체크아웃). `~/.claude/skills/` 등 다른 곳에 복사본을 두지 않는다(옛 `travel-api-skill` 폴더는 2026-10-02 에 지웠다). 스킬 배포는 `~/apps/skills` 를 thruthesky/skills 에 push 하는 것이다. ph-travel-api 저장소에는 스킬 파일이 없고, `.claude/settings.json` 으로 플러그인을 켠다. 스킬을 고치면 `SKILL.md` 의 `metadata.version`, `.claude-plugin/plugin.json` 의 `version`, 마켓플레이스(`.claude-plugin/marketplace.json`)의 `version` 을 같은 값으로 올린다. 올리지 않으면 Claude Code 플러그인 사용자에게 업데이트가 가지 않는다.
 
 ## 10. 스킬 파일
 

@@ -65,9 +65,10 @@
     - 사진: 여행지마다 10장 이상(대표 1 + gallery 9)으로 올렸다. 3장으로는 그곳의 전경·명소·활동·계절을 보여 주지 못해서다. `content.mjs check`·`r2.mjs deploy` 가 10장 미만이면 막고(`--allow-few-images` 로만 알림으로 낮춤), 후보 찾기 `photos`(분류·이름·좌표 주변, 이미 쓴 사진·1080px 미만·NC/ND 제외)와 받기 `fetch`(1080px WebP + credit·source 를 채운 image 노드)를 더했다. 실측: 198곳 모두 3장, 모자란 사진 1,408장. 030 비간으로 후보 찾기·받기를 시험했다.
     - 추천 모음: `meta.json` 에 `destinations`(지역별 추천 베스트 — 마닐라·세부·앙헬레스·클락·보라카이·팔라완·바기오·보홀·두마게테·다바오, 각 10곳)와 `monthly_picks`(12달 × 5곳)를 넣었다. 순서는 여행 플랫폼 순위·투어 상품 수·매체를 거점마다 2곳 이상 비교해 정했고, 근거는 ph-travel-api `sources/picks.json` 에 있다. 월별 추천은 그 달이 그 여행지의 최적기일 때만 넣는다(`build.mjs` 가 검사 — 그래서 MassKara(10월 바콜로드)·Peñafrancia(9월 나가)·Lanzones(10월 카미긴)는 빠졌다).
     - 조회: `travel.mjs picks`, `TravelDb::picks()`(PHP)·`TravelDb.picks()`(Dart). 필고 여행 앱 첫 화면에 「지역별 추천 베스트 10」·「월별 추천 여행지」를 붙였고, 블록 렌더러를 분야와 무관한 공용 `apps/lib/src/api_widget/ApiBlocks`(type 48개)로 옮겼다.
+    - (사용자 결정) **ph-travel-api 는 GitHub 에 push 하지 않고 R2 에만 배포한다.** 옛 주소(GitHub Pages)는 2026-10-01 판에서 멈추고, 필고의 서브모듈 포인터도 커밋하지 않는다. **스킬 원본은 `~/apps/skills` 하나뿐이다** — 옛 복사본 `~/.claude/skills/travel-api-skill`(2026.09.28.4)을 지웠다. 스킬 배포는 `~/apps/skills` 의 push 다(2026.10.02.1).
     - R2 배포(사용자 요청): ph-travel-api `f6cb0b6`, version `6f3767b06101`, data_version `2026-10-02T06:22:45Z`. 사진이 아직 3장이라 `--allow-few-images` 로 올렸다. 바뀐 JSON 10개(38MB)만 올라갔고 `verify`(파일 580개·CORS)와 공개 주소의 `destinations` 9곳·`monthly_picks` 12달을 확인했다.
 - **남은 일:**
-  - ph-travel-api 의 Pages workflow(`.github/workflows/deploy.yml`)를 언제 끌지 사용자와 정한다. 옛 앱(옛 번들·옛 기본 주소)이 남아 있는 동안은 둔다.
+  - 옛 주소(GitHub Pages)는 2026-10-01 판에서 멈춘다 — ph-travel-api 를 GitHub 에 push 하지 않기로 했다(2026-10-02). 옛 기본 주소를 쓰는 옛 앱은 그 판을 계속 받는다.
   - ph-travel-api `build.mjs` 에 `data_version` 형식 검사를 넣는다. 지금은 `content.mjs check`·`r2.mjs` 만 막는다.
   - 근거 기록 `sources/`: 기존 198곳에는 없다. 항목을 고칠 때마다 채운다.
   - 사진: **198곳 모두 10장으로 채운다(모자란 사진 1,408장)** — `content.mjs photos`·`fetch` 로 후보를 찾고 직접 열어 확인한다. 다 채우기 전에는 R2 배포에 `--allow-few-images` 가 필요하다. 178 파밀라칸 섬 대표 사진을 섬이 보이는 사진으로 바꾼다. 위치 정보가 없는 413장은 고칠 때마다 눈으로 확인한다.

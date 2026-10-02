@@ -17,7 +17,7 @@ API 가 내보내는 파일과 그 모양이다. **웹·앱은 이 파일을 개
 
 | 나라 | 기본 주소 | 저장소 |
 |------|-----------|--------|
-| 필리핀 `ph` | `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2 — 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/` 는 당분간 같은 내용) | `github.com/thruthesky/ph-travel-api` |
+| 필리핀 `ph` | `https://files.withcenter.com/ph-travel-api/v2/` (Cloudflare R2 — 옛 주소 `https://thruthesky.github.io/ph-travel-api/v2/` 는 2026-10-01 판에서 멈췄다) | `github.com/thruthesky/ph-travel-api` |
 
 | 파일 | 내용 |
 |------|------|
